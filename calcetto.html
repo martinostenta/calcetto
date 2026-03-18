@@ -157,6 +157,7 @@
         <h2>Seleziona giocatori</h2>
         <p style="font-size:0.79rem;color:#888;margin-bottom:10px">1° click → Squadra A &nbsp;|&nbsp; 2° click → Squadra B &nbsp;|&nbsp; 3° click → rimuovi</p>
         <div class="chips" id="playerChips"></div>
+        <div id="teamCounter" style="margin-top:10px;font-size:0.82rem"></div>
       </div>
       <button class="btn btn-primary" onclick="goToStep2()">Avanti →</button>
     </div>
@@ -573,7 +574,8 @@ function renderProgressionChart() {
       responsive: true,
       interaction: { mode: 'index', intersect: false },
       plugins: {
-        legend: { position: 'bottom', labels: { font: { size: 10 }, boxWidth: 10, padding: 8 } }
+        legend: { position: 'bottom', labels: { font: { size: 10 }, boxWidth: 10, padding: 8 } },
+        tooltip: { itemSort: (a, b) => b.raw - a.raw }
       },
       scales: {
         y: { ticks: { font: { size: 10 } } },
@@ -620,6 +622,15 @@ function renderChips() {
     const badge = inA ? '<span class="badge">A</span>' : inB ? '<span class="badge">B</span>' : '';
     return `<div class="chip ${inA?'in-a':inB?'in-b':''}" onclick="cycleTeam('${p.id}')">${p.name}${badge}</div>`;
   }).join('');
+
+  const nA = CM.teamA.length, nB = CM.teamB.length;
+  const ok = nA > 0 && nB > 0 && nA === nB;
+  document.getElementById('teamCounter').innerHTML =
+    `<span style="color:var(--blue);font-weight:700">A: ${nA}</span>` +
+    `<span style="color:#bbb;margin:0 6px">·</span>` +
+    `<span style="color:var(--red);font-weight:700">B: ${nB}</span>` +
+    (ok ? `<span style="color:#888;margin-left:6px;font-size:0.72rem">${nA}v${nB}</span>` :
+          nA !== nB && nA > 0 && nB > 0 ? `<span style="color:#e65100;margin-left:6px;font-size:0.72rem">squadre sbilanciate</span>` : '');
 }
 
 function cycleTeam(pid) {
