@@ -1,0 +1,8 @@
+.DS_Store
+*.xlsx
+*_BACKUP_*
+calcetto_backup_*.json
+server.py
+calcetto.html
+node_modules/
+.vercel/
