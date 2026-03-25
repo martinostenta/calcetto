@@ -1257,7 +1257,6 @@ function exportMatchImage(matchId) {
 // ─── PROFILI ──────────────────────────────────────────────────────────────────
 function calcPlayerProfile(pid, matches, players) {
   const getName = id => players.find(p => p.id === id)?.name || '?';
-  // Restituisce tutti i pari merito al primo posto
   const topAll = obj => {
     const entries = Object.entries(obj).sort((a, b) => b[1] - a[1]);
     if (!entries.length) return null;
@@ -1266,28 +1265,37 @@ function calcPlayerProfile(pid, matches, players) {
   };
 
   const keeperBeaten = {}, killers = {}, assistedTo = {}, assistFrom = {};
-  const comboWins = {}, poliLoss = {};
+  const comboWins = {}, comboLoss = {}, poliLoss = {};
+  const duoPairs = {}; // "pidA→pidB" => count (coppia gol+assist)
 
   matches.forEach(m => {
     if (!m.stats[pid]) return;
     const myTeam   = m.stats[pid].team;
     const myResult = m.stats[pid].result;
 
-    // Combo & Poli — calcolabili da tutti i match
     Object.entries(m.stats).forEach(([opid, ops]) => {
       if (opid === pid) return;
-      if (ops.team === myTeam  && myResult === 'W') comboWins[opid] = (comboWins[opid] || 0) + 1;
-      if (ops.team !== myTeam  && myResult === 'L') poliLoss[opid]  = (poliLoss[opid]  || 0) + 1;
+      if (ops.team === myTeam && myResult === 'W') comboWins[opid] = (comboWins[opid] || 0) + 1;
+      if (ops.team === myTeam && myResult === 'L') comboLoss[opid] = (comboLoss[opid] || 0) + 1;
+      if (ops.team !== myTeam && myResult === 'L') poliLoss[opid]  = (poliLoss[opid]  || 0) + 1;
     });
 
-    // Stats relazionali — solo da match con azioni salvate
     if (!m.actions) return;
     m.actions.forEach(a => {
       if (a.type !== 'goal') return;
-      if (a.scorerId === pid && a.keeperId)  keeperBeaten[a.keeperId] = (keeperBeaten[a.keeperId] || 0) + 1;
-      if (a.keeperId === pid && a.scorerId)  killers[a.scorerId]      = (killers[a.scorerId]      || 0) + 1;
-      if (a.assistId === pid && a.scorerId)  assistedTo[a.scorerId]   = (assistedTo[a.scorerId]   || 0) + 1;
-      if (a.scorerId === pid && a.assistId)  assistFrom[a.assistId]   = (assistFrom[a.assistId]   || 0) + 1;
+      if (a.scorerId === pid && a.keeperId) keeperBeaten[a.keeperId] = (keeperBeaten[a.keeperId] || 0) + 1;
+      if (a.keeperId === pid && a.scorerId) killers[a.scorerId]      = (killers[a.scorerId]      || 0) + 1;
+      if (a.assistId === pid && a.scorerId) assistedTo[a.scorerId]   = (assistedTo[a.scorerId]   || 0) + 1;
+      if (a.scorerId === pid && a.assistId) assistFrom[a.assistId]   = (assistFrom[a.assistId]   || 0) + 1;
+      // Coppia d'oro: coinvolge pid come scorer o assister
+      if (a.scorerId === pid && a.assistId) {
+        const key = a.assistId;
+        duoPairs[key] = (duoPairs[key] || 0) + 1;
+      }
+      if (a.assistId === pid && a.scorerId) {
+        const key = a.scorerId;
+        duoPairs[key] = (duoPairs[key] || 0) + 1;
+      }
     });
   });
 
@@ -1297,7 +1305,9 @@ function calcPlayerProfile(pid, matches, players) {
     assistedTo:   topAll(assistedTo),
     assistFrom:   topAll(assistFrom),
     combo:        topAll(comboWins),
+    comboLoss:    topAll(comboLoss),
     poli:         topAll(poliLoss),
+    duoPair:      topAll(duoPairs),
   };
 }
 
@@ -1309,43 +1319,103 @@ function renderProfiles(selectedPid) {
   const pid = selectedPid || players[0].id;
   const p   = players.find(x => x.id === pid);
 
-  // Calcola stats generali del giocatore
   const allMatches = matches.filter(m => m.stats[pid]);
   const played = allMatches.length;
   const goals   = allMatches.reduce((s, m) => s + (m.stats[pid].goals   || 0), 0);
   const assists = allMatches.reduce((s, m) => s + (m.stats[pid].assists || 0), 0);
   const wins    = allMatches.filter(m => m.stats[pid].result === 'W').length;
-  const pts     = allMatches.reduce((s, m) => {
+
+  // Stats per partita (per record e aggregate)
+  const perMatch = allMatches.map(m => {
     const ps = m.stats[pid];
-    return s + 10 + ps.goals*5 + ps.assists*3 + ps.conceded*(-1) + ps.ownGoals*(-3) +
-           (ps.result==='W' ? 60/ps.teamSize : ps.result==='D' ? 30/ps.teamSize : 0);
-  }, 0);
+    const pts = PT.PRESENCE + ps.goals*PT.GOAL + ps.assists*PT.ASSIST +
+                ps.conceded*PT.CONCEDED + ps.ownGoals*PT.OWN_GOAL +
+                (ps.result==='W' ? PT.WIN/ps.teamSize : ps.result==='D' ? PT.DRAW/ps.teamSize : 0);
+    return { date: m.date, dateStr: new Date(m.date+'T12:00:00').toLocaleDateString('it-IT',{day:'numeric',month:'short',year:'numeric'}),
+             goals: ps.goals, assists: ps.assists, conceded: ps.conceded, pts: Math.round(pts),
+             result: ps.result, team: ps.team };
+  });
+
+  const totalPts = perMatch.reduce((s, ms) => s + ms.pts, 0);
+
+  // ── Record personali ──
+  const fmtDate = d => new Date(d+'T12:00:00').toLocaleDateString('it-IT',{day:'numeric',month:'short'});
+  const findRecord = (arr, key, dir) => {
+    if (!arr.length) return null;
+    const sorted = [...arr].sort((a,b) => dir === 'max' ? b[key]-a[key] : a[key]-b[key]);
+    const best = sorted[0][key];
+    const tied = sorted.filter(x => x[key] === best);
+    return { value: best, dates: tied.map(x => fmtDate(x.date)) };
+  };
+
+  const recGoals    = findRecord(perMatch, 'goals', 'max');
+  const recAssists  = findRecord(perMatch, 'assists', 'max');
+  const recConceded = findRecord(perMatch.filter(ms => ms.conceded > 0), 'conceded', 'max');
+  const bestMatch   = findRecord(perMatch, 'pts', 'max');
+  const worstMatch  = findRecord(perMatch, 'pts', 'min');
+
+  // ── Stats aggregate ──
+  const hatTricks = perMatch.filter(ms => ms.goals >= 3).length;
+  const wMatches  = perMatch.filter(ms => ms.result === 'W');
+  const lMatches  = perMatch.filter(ms => ms.result === 'L');
+  const avgPtsW   = wMatches.length ? Math.round(wMatches.reduce((s, ms) => s + ms.pts, 0) / wMatches.length) : null;
+  const avgPtsL   = lMatches.length ? Math.round(lMatches.reduce((s, ms) => s + ms.pts, 0) / lMatches.length) : null;
+  const asA = perMatch.filter(ms => ms.team === 'A');
+  const asB = perMatch.filter(ms => ms.team === 'B');
+  const winRateA = asA.length >= 2 ? Math.round(asA.filter(ms => ms.result === 'W').length / asA.length * 100) : null;
+  const winRateB = asB.length >= 2 ? Math.round(asB.filter(ms => ms.result === 'W').length / asB.length * 100) : null;
 
   const prof = calcPlayerProfile(pid, matches, players);
 
-  // data è ora un array di pari merito (o null)
-  const profileCard = (icon, title, desc, data) => {
+  // ── Card helpers ──
+  const relCard = (icon, title, desc, data) => {
     if (!data) return `<div class="stat-card">
-      <span class="sc-label">${title}</span>
-      <span class="sc-icon">${icon}</span>
+      <span class="sc-label">${title}</span><span class="sc-icon">${icon}</span>
       <span class="sc-value" style="color:#ccc">—</span>
       <span class="sc-sub" style="color:#ddd">dati insufficienti</span>
     </div>`;
     const names = data.map(d => d.name).join(', ');
     const count = data[0].count;
     return `<div class="stat-card">
-      <span class="sc-label">${title}</span>
-      <span class="sc-icon">${icon}</span>
+      <span class="sc-label">${title}</span><span class="sc-icon">${icon}</span>
       <span class="sc-value">${names}</span>
       <span class="sc-sub">${count} volt${count === 1 ? 'a' : 'e'}</span>
       <span class="sc-sub" style="font-size:0.65rem;color:#bbb;margin-top:2px">${desc}</span>
     </div>`;
   };
 
-  // Chips selettore giocatori
+  const recCard = (icon, title, rec) => {
+    if (!rec || rec.value === 0) return `<div class="stat-card">
+      <span class="sc-label">${title}</span><span class="sc-icon">${icon}</span>
+      <span class="sc-value" style="color:#ccc">—</span>
+    </div>`;
+    return `<div class="stat-card">
+      <span class="sc-label">${title}</span><span class="sc-icon">${icon}</span>
+      <span class="sc-value">${rec.value}</span>
+      <span class="sc-sub">${rec.dates.join(', ')}</span>
+    </div>`;
+  };
+
   const chips = players.map(pl =>
     `<span class="chip ${pl.id === pid ? 'team-a' : ''}" style="cursor:pointer" onclick="renderProfiles('${pl.id}')">${pl.name}</span>`
   ).join('');
+
+  // ── Stats aggregate HTML ──
+  let aggHtml = '';
+  const aggItems = [];
+  if (hatTricks > 0) aggItems.push(`<span>🎩 <strong>${hatTricks}</strong> tripletta${hatTricks > 1 ? 'e' : ''} (3+ gol)</span>`);
+  if (avgPtsW !== null) aggItems.push(`<span>📈 Media punti in vittorie: <strong>${avgPtsW}</strong></span>`);
+  if (avgPtsL !== null) aggItems.push(`<span>📉 Media punti in sconfitte: <strong>${avgPtsL}</strong></span>`);
+  if (winRateA !== null && winRateB !== null) {
+    const better = winRateA > winRateB ? 'A' : winRateA < winRateB ? 'B' : null;
+    aggItems.push(`<span>🔀 Vittorie squadra A: <strong>${winRateA}%</strong> (${asA.length}p) · B: <strong>${winRateB}%</strong> (${asB.length}p)${better ? ` — meglio in <strong>${better}</strong>` : ''}</span>`);
+  }
+  if (aggItems.length) {
+    aggHtml = `<div class="card" style="margin-top:10px">
+      <h2 style="margin-bottom:8px;font-size:0.85rem">📊 Statistiche</h2>
+      <div style="display:flex;flex-direction:column;gap:6px;font-size:0.8rem;color:#444">${aggItems.join('')}</div>
+    </div>`;
+  }
 
   c.innerHTML = `
     <div class="card" style="margin-bottom:12px">
@@ -1353,16 +1423,30 @@ function renderProfiles(selectedPid) {
     </div>
     <div class="card">
       <h2 style="margin-bottom:2px">${p.name}</h2>
-      <p style="font-size:0.75rem;color:#aaa;margin-bottom:14px">${played} partite · ${Math.round(pts)} pt · ${goals} gol · ${assists} assist · ${played ? Math.round(wins/played*100) : 0}% vittorie</p>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
-        ${profileCard('🧤', 'Vittima', 'Portiere a cui segni di più', prof.keeperBeaten)}
-        ${profileCard('⚔️', 'Killer', 'Chi ti segna di più in porta', prof.killer)}
-        ${profileCard('👟', 'Assistman per', 'A chi dai più assist', prof.assistedTo)}
-        ${profileCard('🎯', 'Assistito da', 'Chi ti serve di più', prof.assistFrom)}
-        ${profileCard('🤝', 'Combo vincente', 'Con chi vinci di più', prof.combo)}
-        ${profileCard('💢', 'Nemesi', 'Chi ti batte di più', prof.poli)}
+      <p style="font-size:0.75rem;color:#aaa;margin-bottom:14px">${played} partite · ${Math.round(totalPts)} pt · ${goals} gol · ${assists} assist · ${played ? Math.round(wins/played*100) : 0}% vittorie</p>
+
+      <h3 style="font-size:0.78rem;color:#666;margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">Relazioni</h3>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px">
+        ${relCard('🧤', 'Vittima', 'Portiere a cui segni di più', prof.keeperBeaten)}
+        ${relCard('⚔️', 'Killer', 'Chi ti segna di più in porta', prof.killer)}
+        ${relCard('👟', 'Assistman per', 'A chi dai più assist', prof.assistedTo)}
+        ${relCard('🎯', 'Assistito da', 'Chi ti serve di più', prof.assistFrom)}
+        ${relCard('🤝', 'Combo vincente', 'Con chi vinci di più', prof.combo)}
+        ${relCard('💔', 'Combo perdente', 'Con chi perdi di più', prof.comboLoss)}
+        ${relCard('💢', 'Nemesi', 'Avversario nelle tue sconfitte', prof.poli)}
+        ${relCard('🔗', 'Coppia d\'oro', 'Gol+assist insieme', prof.duoPair)}
       </div>
-    </div>`;
+
+      <h3 style="font-size:0.78rem;color:#666;margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">Record personali</h3>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+        ${recCard('⚽', 'Record gol', recGoals)}
+        ${recCard('👟', 'Record assist', recAssists)}
+        ${recCard('🧤', 'Record subiti', recConceded)}
+        ${recCard('🏆', 'Miglior partita', bestMatch)}
+        ${recCard('📉', 'Peggior partita', worstMatch)}
+      </div>
+    </div>
+    ${aggHtml}`;
 }
 
 // ─── BACKUP ───────────────────────────────────────────────────────────────────
