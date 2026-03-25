@@ -1257,9 +1257,12 @@ function exportMatchImage(matchId) {
 // ─── PROFILI ──────────────────────────────────────────────────────────────────
 function calcPlayerProfile(pid, matches, players) {
   const getName = id => players.find(p => p.id === id)?.name || '?';
-  const top = obj => {
+  // Restituisce tutti i pari merito al primo posto
+  const topAll = obj => {
     const entries = Object.entries(obj).sort((a, b) => b[1] - a[1]);
-    return entries.length ? { id: entries[0][0], name: getName(entries[0][0]), count: entries[0][1] } : null;
+    if (!entries.length) return null;
+    const maxVal = entries[0][1];
+    return entries.filter(([_, v]) => v === maxVal).map(([id, count]) => ({ id, name: getName(id), count }));
   };
 
   const keeperBeaten = {}, killers = {}, assistedTo = {}, assistFrom = {};
@@ -1289,12 +1292,12 @@ function calcPlayerProfile(pid, matches, players) {
   });
 
   return {
-    keeperBeaten: top(keeperBeaten),
-    killer:       top(killers),
-    assistedTo:   top(assistedTo),
-    assistFrom:   top(assistFrom),
-    combo:        top(comboWins),
-    poli:         top(poliLoss),
+    keeperBeaten: topAll(keeperBeaten),
+    killer:       topAll(killers),
+    assistedTo:   topAll(assistedTo),
+    assistFrom:   topAll(assistFrom),
+    combo:        topAll(comboWins),
+    poli:         topAll(poliLoss),
   };
 }
 
@@ -1320,18 +1323,22 @@ function renderProfiles(selectedPid) {
 
   const prof = calcPlayerProfile(pid, matches, players);
 
-  const profileCard = (icon, label, data, noDataLabel) => {
+  // data è ora un array di pari merito (o null)
+  const profileCard = (icon, title, desc, data) => {
     if (!data) return `<div class="stat-card">
-      <span class="sc-label">${label}</span>
+      <span class="sc-label">${title}</span>
       <span class="sc-icon">${icon}</span>
       <span class="sc-value" style="color:#ccc">—</span>
-      <span class="sc-sub" style="color:#ddd">${noDataLabel}</span>
+      <span class="sc-sub" style="color:#ddd">dati insufficienti</span>
     </div>`;
+    const names = data.map(d => d.name).join(', ');
+    const count = data[0].count;
     return `<div class="stat-card">
-      <span class="sc-label">${label}</span>
+      <span class="sc-label">${title}</span>
       <span class="sc-icon">${icon}</span>
-      <span class="sc-value">${data.name}</span>
-      <span class="sc-sub">${data.count} volt${data.count === 1 ? 'a' : 'e'}</span>
+      <span class="sc-value">${names}</span>
+      <span class="sc-sub">${count} volt${count === 1 ? 'a' : 'e'}</span>
+      <span class="sc-sub" style="font-size:0.65rem;color:#bbb;margin-top:2px">${desc}</span>
     </div>`;
   };
 
@@ -1348,12 +1355,12 @@ function renderProfiles(selectedPid) {
       <h2 style="margin-bottom:2px">${p.name}</h2>
       <p style="font-size:0.75rem;color:#aaa;margin-bottom:14px">${played} partite · ${Math.round(pts)} pt · ${goals} gol · ${assists} assist · ${played ? Math.round(wins/played*100) : 0}% vittorie</p>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
-        ${profileCard('🧤', 'Portiere più colpito', prof.keeperBeaten, 'nessun dato')}
-        ${profileCard('⚔️', 'Killer', prof.killer, 'nessun dato')}
-        ${profileCard('👟', 'Assistman per', prof.assistedTo, 'nessun dato')}
-        ${profileCard('🎯', 'Contributor', prof.assistFrom, 'nessun dato')}
-        ${profileCard('🤝', 'Combo', prof.combo, 'nessun dato')}
-        ${profileCard('💢', 'Poli opposti', prof.poli, 'nessun dato')}
+        ${profileCard('🧤', 'Vittima', 'Portiere a cui segni di più', prof.keeperBeaten)}
+        ${profileCard('⚔️', 'Killer', 'Chi ti segna di più in porta', prof.killer)}
+        ${profileCard('👟', 'Assistman per', 'A chi dai più assist', prof.assistedTo)}
+        ${profileCard('🎯', 'Assistito da', 'Chi ti serve di più', prof.assistFrom)}
+        ${profileCard('🤝', 'Combo vincente', 'Con chi vinci di più', prof.combo)}
+        ${profileCard('💢', 'Nemesi', 'Chi ti batte di più', prof.poli)}
       </div>
     </div>`;
 }
