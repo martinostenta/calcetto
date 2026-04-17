@@ -1073,8 +1073,28 @@ function renderPlayers() {
   if (!players.length) { c.innerHTML = '<p style="color:#aaa;text-align:center;padding:24px">Nessun giocatore.</p>'; return; }
   c.innerHTML = players.map(p =>
     `<div class="pli"><span style="font-weight:600">${p.name}</span>
-     <button class="btn btn-danger btn-sm" onclick="removePlayer('${p.id}')">Rimuovi</button></div>`
+     <div style="display:flex;gap:6px">
+       <button class="btn btn-secondary btn-sm" onclick="renamePlayer('${p.id}')">Rinomina</button>
+       <button class="btn btn-danger btn-sm" onclick="removePlayer('${p.id}')">Rimuovi</button>
+     </div></div>`
   ).join('');
+}
+
+function renamePlayer(id) {
+  const d = loadData();
+  const p = d.players.find(x => x.id === id);
+  if (!p) return;
+  const newName = prompt(`Nuovo nome per ${p.name}:`, p.name);
+  if (!newName) return;
+  const trimmed = newName.trim();
+  if (!trimmed || trimmed === p.name) return;
+  if (d.players.some(x => x.id !== id && x.name.toLowerCase() === trimmed.toLowerCase())) {
+    alert('Esiste già un giocatore con questo nome.');
+    return;
+  }
+  p.name = trimmed;
+  saveData(d);
+  renderPlayers();
 }
 
 function addPlayer() {
