@@ -314,18 +314,30 @@ let _data = null;
 
 function loadData() { return _data; }
 
-function saveData(d) {
+async function saveData(d) {
   _data = d;
   _setSaveStatus('saving');
   const token = sessionStorage.getItem('admin_token');
-  if (!token) { _setSaveStatus('ok'); return; } // visitatore, non salva
-  fetch('/api/save', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-    body: JSON.stringify(d),
-  })
-  .then(r => { if (!r.ok) throw new Error(); _setSaveStatus('ok'); })
-  .catch(() => _setSaveStatus('err'));
+  if (!token) { _setSaveStatus('ok'); return true; } // visitatore, non salva
+  try {
+    const r = await fetch('/api/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify(d),
+    });
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({ error: r.statusText }));
+      _setSaveStatus('err');
+      console.error('Save failed:', err);
+      return false;
+    }
+    _setSaveStatus('ok');
+    return true;
+  } catch (e) {
+    _setSaveStatus('err');
+    console.error('Save error:', e);
+    return false;
+  }
 }
 
 function _setSaveStatus(s) {
@@ -340,7 +352,7 @@ function _setSaveStatus(s) {
 
 async function _initData() {
   try {
-    const res = await fetch('/calcetto_data.json');
+    const res = await fetch('/calcetto_data.json?t=' + Date.now(), { cache: 'no-store' });
     if (!res.ok) throw new Error();
     _data = await res.json();
   } catch {
@@ -787,7 +799,7 @@ function renderSummary() {
 `;
 }
 
-function saveMatch() {
+async function saveMatch() {
   const d = loadData();
   const allPids = [...CM.teamA, ...CM.teamB];
   const nA = CM.teamA.length, nB = CM.teamB.length;
@@ -822,7 +834,11 @@ function saveMatch() {
   });
 
   d.matches.push({ id: uid(), type: 'imported', date: CM.date, season: CM.season, stats: ps, actions: CM.goals });
-  saveData(d);
+  const ok = await saveData(d);
+  if (!ok) {
+    alert('⚠ Errore nel salvataggio. Controlla la console e riprova.');
+    return;
+  }
   alert('Partita salvata ✓');
   showTab('classifica');
 }
