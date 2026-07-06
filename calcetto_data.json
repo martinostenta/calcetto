@@ -3344,6 +3344,185 @@
           "keeperId": "p_8811b3c6"
         }
       ]
+    },
+    {
+      "id": "mr9ajhwx2b5jlg5lun",
+      "type": "imported",
+      "date": "2026-06-23",
+      "season": 2026,
+      "stats": {
+        "p_bfeaf011": {
+          "goals": 0,
+          "assists": 1,
+          "ownGoals": 0,
+          "conceded": 0,
+          "team": "A",
+          "result": "W",
+          "teamSize": 5
+        },
+        "p_f8b808e8": {
+          "goals": 0,
+          "assists": 0,
+          "ownGoals": 0,
+          "conceded": 0,
+          "team": "A",
+          "result": "W",
+          "teamSize": 5
+        },
+        "p_6272fa1b": {
+          "goals": 3,
+          "assists": 2,
+          "ownGoals": 0,
+          "conceded": 1,
+          "team": "A",
+          "result": "W",
+          "teamSize": 5
+        },
+        "mmosmav262b5fvoqgov": {
+          "goals": 1,
+          "assists": 0,
+          "ownGoals": 0,
+          "conceded": 2,
+          "team": "A",
+          "result": "W",
+          "teamSize": 5
+        },
+        "p_3731e895": {
+          "goals": 3,
+          "assists": 2,
+          "ownGoals": 0,
+          "conceded": 2,
+          "team": "A",
+          "result": "W",
+          "teamSize": 5
+        },
+        "p_d4db44d6": {
+          "goals": 2,
+          "assists": 0,
+          "ownGoals": 0,
+          "conceded": 0,
+          "team": "B",
+          "result": "L",
+          "teamSize": 5
+        },
+        "p_9d04b657": {
+          "goals": 0,
+          "assists": 0,
+          "ownGoals": 0,
+          "conceded": 1,
+          "team": "B",
+          "result": "L",
+          "teamSize": 5
+        },
+        "p_87fc91be": {
+          "goals": 0,
+          "assists": 0,
+          "ownGoals": 0,
+          "conceded": 0,
+          "team": "B",
+          "result": "L",
+          "teamSize": 5
+        },
+        "p_b3043002": {
+          "goals": 2,
+          "assists": 0,
+          "ownGoals": 0,
+          "conceded": 2,
+          "team": "B",
+          "result": "L",
+          "teamSize": 5
+        },
+        "p_f90d5f13": {
+          "goals": 1,
+          "assists": 2,
+          "ownGoals": 0,
+          "conceded": 4,
+          "team": "B",
+          "result": "L",
+          "teamSize": 5
+        }
+      },
+      "actions": [
+        {
+          "id": "mr9agdc63poon3swsu3",
+          "type": "goal",
+          "scorerId": "p_6272fa1b",
+          "keeperId": "p_9d04b657"
+        },
+        {
+          "id": "mr9agl51v4clg8wh16q",
+          "type": "goal",
+          "scorerId": "p_b3043002",
+          "keeperId": "mmosmav262b5fvoqgov"
+        },
+        {
+          "id": "mr9agu3dirj734z7f",
+          "type": "goal",
+          "scorerId": "p_d4db44d6",
+          "assistId": "p_f90d5f13",
+          "keeperId": "mmosmav262b5fvoqgov"
+        },
+        {
+          "id": "mr9ah2lq7cky8bpa7d9",
+          "type": "goal",
+          "scorerId": "p_3731e895",
+          "assistId": "p_6272fa1b",
+          "keeperId": "p_b3043002"
+        },
+        {
+          "id": "mr9ahdoqxdmxesy5uu",
+          "type": "goal",
+          "scorerId": "p_3731e895",
+          "assistId": "p_bfeaf011",
+          "keeperId": "p_b3043002"
+        },
+        {
+          "id": "mr9ahm0q0iqn1u7wmyh4",
+          "type": "goal",
+          "scorerId": "p_f90d5f13",
+          "keeperId": "p_3731e895"
+        },
+        {
+          "id": "mr9ai20ru4yd5q361y",
+          "type": "goal",
+          "scorerId": "p_b3043002",
+          "keeperId": "p_3731e895"
+        },
+        {
+          "id": "mr9aigfagil0fzo3n95",
+          "type": "goal",
+          "scorerId": "p_d4db44d6",
+          "assistId": "p_f90d5f13",
+          "keeperId": "p_6272fa1b"
+        },
+        {
+          "id": "mr9aiptnpz6c55uwb5",
+          "type": "goal",
+          "scorerId": "p_3731e895",
+          "assistId": "p_6272fa1b",
+          "keeperId": "p_f90d5f13"
+        },
+        {
+          "id": "mr9aixh3qd1x5d8nkv",
+          "type": "goal",
+          "scorerId": "p_6272fa1b",
+          "assistId": "p_3731e895",
+          "keeperId": "p_f90d5f13"
+        },
+        {
+          "id": "mr9aj7sj17kziai9rot",
+          "type": "goal",
+          "scorerId": "mmosmav262b5fvoqgov",
+          "assistId": "p_3731e895",
+          "keeperId": "p_f90d5f13"
+        },
+        {
+          "id": "mr9ajet8dab5blupjz",
+          "type": "goal",
+          "scorerId": "p_6272fa1b",
+          "keeperId": "p_f90d5f13"
+        }
+      ]
     }
   ],
   "season": 2026
