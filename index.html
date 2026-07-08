@@ -100,10 +100,23 @@
     .chip.in-b { background: var(--red-bg); border-color: var(--red); color: var(--red); }
     .chip.in-b .badge { background: var(--red); color: var(--bg); }
     .chip.team-a { background: var(--green-glow); border-color: var(--green); color: var(--green); }
+    .chip.selected { background: var(--green-glow); border-color: var(--green); color: var(--green); font-weight: 600; }
 
     .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
-    @media (max-width: 540px) { .two-col, .three-col { grid-template-columns: 1fr; } }
+
+    /* Griglie di card (statistiche / relazioni / record / partite) */
+    .sgrid { display: grid; gap: 8px; }
+    .sgrid-3 { grid-template-columns: repeat(3, 1fr); }
+    .sgrid-4 { grid-template-columns: repeat(4, 1fr); }
+    .sgrid-5 { grid-template-columns: repeat(5, 1fr); }
+    .mgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+    @media (max-width: 600px) {
+      .two-col, .three-col { grid-template-columns: 1fr; }
+      .sgrid-3, .sgrid-4, .sgrid-5 { grid-template-columns: repeat(2, 1fr); }
+      .mgrid { grid-template-columns: 1fr; }
+    }
 
     /* ── Goals list ── */
     .goal-item { display: flex; align-items: center; gap: 7px; padding: 9px 11px; background: var(--surface-up); border-radius: 8px; margin-bottom: 6px; border-left: 3px solid var(--green); font-size: 0.84rem; color: var(--text); }
@@ -170,6 +183,7 @@
   <button class="admin-tab" onclick="showTab('partita')" style="display:none">Nuova Partita</button>
   <button onclick="showTab('storico')">Storico</button>
   <button onclick="showTab('profili')">Profili</button>
+  <button onclick="showTab('bilancia')">Team picker</button>
   <button class="admin-tab" onclick="showTab('giocatori')" style="display:none">Giocatori</button>
 </nav>
 
@@ -278,6 +292,22 @@
   <!-- PROFILI -->
   <section id="profili" class="section">
     <div id="profileContent"></div>
+  </section>
+
+  <!-- BILANCIA -->
+  <section id="bilancia" class="section">
+    <div class="card">
+      <h2>Chi gioca stasera?</h2>
+      <p style="font-size:0.79rem;color:var(--text-dim);margin-bottom:10px">Tocca i presenti. Il sistema propone squadre equilibrate per forza, favorendo accoppiamenti visti raramente.</p>
+      <div class="chips" id="balanceChips"></div>
+      <div id="balanceCount" style="margin-top:10px;font-size:0.82rem"></div>
+      <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+        <button class="btn btn-secondary btn-sm" onclick="balanceSelectAll()">Tutti</button>
+        <button class="btn btn-secondary btn-sm" onclick="balanceClear()">Nessuno</button>
+        <button class="btn btn-primary" onclick="generateBalanced()">⚖️ Genera proposte</button>
+      </div>
+    </div>
+    <div id="balanceResults"></div>
   </section>
 
   <!-- GIOCATORI -->
@@ -489,13 +519,14 @@ function showTab(tab) {
   // Trova il bottone giusto per data-tab o testo
   document.querySelectorAll('nav button').forEach(b => {
     const t = b.textContent.trim().toLowerCase();
-    const map = { classifica:'classifica', 'nuova partita':'partita', storico:'storico', profili:'profili', giocatori:'giocatori' };
+    const map = { classifica:'classifica', 'nuova partita':'partita', storico:'storico', profili:'profili', 'team picker':'bilancia', giocatori:'giocatori' };
     if (map[t] === tab) b.classList.add('active');
   });
   if (tab === 'classifica') renderStandings();
   if (tab === 'partita')    initPartita();
   if (tab === 'storico')    renderHistory();
   if (tab === 'profili')    renderProfiles();
+  if (tab === 'bilancia')   initBalance();
   if (tab === 'giocatori')  renderPlayers();
 }
 
@@ -969,7 +1000,7 @@ function renderHistory() {
       .map(n => `<span style="white-space:nowrap"><strong>${Math.abs(n)}L:</strong> ${coldPlayers.filter(p=>p.streak===n).map(p=>p.name).join(', ')}</span>`).join(' &nbsp;·&nbsp; ');
 
     const statsHtml = `
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px">
+      <div class="sgrid sgrid-3" style="margin-bottom:16px">
         ${topGoal ? `<div class="stat-card">
           <span class="sc-label">Capocannoniere</span>
           <span class="sc-icon">⚽</span>
@@ -1058,7 +1089,7 @@ function renderHistory() {
     return `<div style="margin-bottom:24px">
       <p style="font-family:'Archivo Black',sans-serif;color:var(--green);margin-bottom:12px;font-size:0.92rem;letter-spacing:.3px">🏆 Stagione ${sy} <span style="font-family:'DM Sans',sans-serif;font-weight:400;color:var(--text-muted);font-size:0.8rem">— ${sm.length} partite</span></p>
       ${statsHtml}
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">${cards}</div>
+      <div class="mgrid">${cards}</div>
     </div>`;
   }).join('');
 }
@@ -1339,6 +1370,32 @@ function calcPlayerProfile(pid, matches, players) {
   };
 }
 
+// Mini-classifica dei compagni: stesse metriche della classifica individuale,
+// ma calcolate solo sulle partite giocate INSIEME (stessa squadra) al giocatore pid.
+// Ordinata per numero di partite insieme (poi per punti).
+function calcTeammateStandings(pid, matches, players) {
+  const getName = id => players.find(p => p.id === id)?.name || '?';
+  const agg = {};
+  matches.forEach(m => {
+    const mine = m.stats && m.stats[pid];
+    if (!mine) return;
+    Object.entries(m.stats).forEach(([tid, ps]) => {
+      if (tid === pid || ps.team !== mine.team) return; // solo compagni di squadra
+      if (!agg[tid]) agg[tid] = { id: tid, name: getName(tid), points: 0, goals: 0, assists: 0, conceded: 0, ownGoals: 0, played: 0, wins: 0, draws: 0, losses: 0 };
+      const a = agg[tid];
+      a.played++;
+      a.points += PT.PRESENCE + ps.goals*PT.GOAL + ps.assists*PT.ASSIST +
+                  ps.conceded*PT.CONCEDED + ps.ownGoals*PT.OWN_GOAL +
+                  (ps.result==='W' ? PT.WIN/ps.teamSize : ps.result==='D' ? PT.DRAW/ps.teamSize : 0);
+      a.goals += ps.goals; a.assists += ps.assists; a.conceded += ps.conceded; a.ownGoals += ps.ownGoals;
+      if      (ps.result === 'W') a.wins++;
+      else if (ps.result === 'D') a.draws++;
+      else                        a.losses++;
+    });
+  });
+  return Object.values(agg).sort((a, b) => b.played - a.played || b.points - a.points);
+}
+
 function renderProfiles(selectedPid) {
   const { players, matches } = loadData();
   const c = document.getElementById('profileContent');
@@ -1424,6 +1481,33 @@ function renderProfiles(selectedPid) {
     `<span class="chip ${pl.id === pid ? 'team-a' : ''}" style="cursor:pointer" onclick="renderProfiles('${pl.id}')">${pl.name}</span>`
   ).join('');
 
+  // ── Classifica compagni (partite giocate insieme) ──
+  const mates = calcTeammateStandings(pid, matches, players);
+  const matesTable = mates.length ? `
+    <div class="standings-wrap" style="margin-top:2px">
+      <table>
+        <thead><tr>
+          <th>Compagno</th><th>Punti</th><th>G</th><th>A</th>
+          <th>-G</th><th>O</th><th>Insieme</th><th>W</th><th>D</th><th>L</th>
+          <th>Media P</th><th>Media G</th><th>Media A</th><th>Media G-</th><th>% Vitt</th>
+        </tr></thead>
+        <tbody>${mates.map(s => {
+          const pg = s.played;
+          return `<tr>
+            <td>${s.name}</td>
+            <td class="pts">${Math.round(s.points)}</td>
+            <td>${s.goals}</td><td>${s.assists}</td><td>${s.conceded}</td><td>${s.ownGoals}</td>
+            <td>${pg}</td><td>${s.wins}</td><td>${s.draws}</td><td>${s.losses}</td>
+            <td>${fmt2(s.points/pg)}</td>
+            <td>${fmt2(s.goals/pg)}</td>
+            <td>${fmt2(s.assists/pg)}</td>
+            <td>${fmt2(s.conceded/pg)}</td>
+            <td>${Math.round(s.wins/pg*100)}%</td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table>
+    </div>` : '<p style="font-size:0.78rem;color:var(--text-muted)">Nessuna partita giocata insieme ad altri.</p>';
+
   // ── Stats aggregate items ──
   const statParts = [`${played} partite`, `${Math.round(totalPts)} pt`, `${goals} gol`, `${assists} assist`, `${played ? Math.round(wins/played*100) : 0}% vittorie`];
   if (avgPtsW !== null) statParts.push(`media V: ${avgPtsW} pt`);
@@ -1439,7 +1523,7 @@ function renderProfiles(selectedPid) {
       <p style="font-size:0.75rem;color:var(--text-dim);margin-bottom:16px;line-height:1.6">${statParts.join(' <span style="color:var(--text-muted)">·</span> ')}</p>
 
       <h3 style="font-size:0.75rem;color:var(--text-muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.7px;font-weight:700">Relazioni</h3>
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px">
+      <div class="sgrid sgrid-4" style="margin-bottom:16px">
         ${relCard('🧤', 'Vittima', 'Portiere a cui segni di più', prof.keeperBeaten)}
         ${relCard('⚔️', 'Killer', 'Chi ti segna di più in porta', prof.killer)}
         ${relCard('👟', 'Assistman per', 'A chi dai più assist', prof.assistedTo)}
@@ -1451,14 +1535,207 @@ function renderProfiles(selectedPid) {
       </div>
 
       <h3 style="font-size:0.75rem;color:var(--text-muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.7px;font-weight:700">Record personali</h3>
-      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px">
+      <div class="sgrid sgrid-5">
         ${recCard('⚽', 'Record gol', recGoals)}
         ${recCard('👟', 'Record assist', recAssists)}
         ${recCard('🧤', 'Record subiti', recConceded)}
         ${recCard('🏆', 'Miglior partita', bestMatch)}
         ${recCard('📉', 'Peggior partita', worstMatch)}
       </div>
+
+      <h3 style="font-size:0.75rem;color:var(--text-muted);margin:16px 0 8px;text-transform:uppercase;letter-spacing:.7px;font-weight:700">Con chi hai giocato</h3>
+      <p style="font-size:0.7rem;color:var(--text-muted);margin-bottom:8px">Rendimento dei compagni solo nelle partite giocate insieme a ${p.name} — stesse metriche della classifica, ordinate per partite insieme.</p>
+      ${matesTable}
     </div>`;
+}
+
+// ─── BILANCIA SQUADRE ──────────────────────────────────────────────────────────
+let BM = { present: [] };
+
+function initBalance() {
+  const { players } = loadData();
+  BM.present = BM.present.filter(id => players.some(p => p.id === id));
+  BM._pool = null;
+  renderBalanceChips();
+  document.getElementById('balanceResults').innerHTML = '';
+}
+
+function renderBalanceChips() {
+  const { players } = loadData();
+  const c = document.getElementById('balanceChips');
+  if (!players.length) { c.innerHTML = '<p style="color:var(--text-muted);font-size:0.82rem">Aggiungi giocatori prima.</p>'; return; }
+  c.innerHTML = players.map(p =>
+    `<div class="chip ${BM.present.includes(p.id) ? 'selected' : ''}" onclick="toggleBalance('${p.id}')">${p.name}</div>`
+  ).join('');
+  const n = BM.present.length;
+  const fmt = n >= 2 ? `${Math.ceil(n/2)} vs ${Math.floor(n/2)}` : '';
+  document.getElementById('balanceCount').innerHTML = n
+    ? `<span style="font-weight:700;color:var(--green)">${n} presenti</span>` + (fmt ? `<span style="color:var(--text-dim);margin-left:8px;font-size:0.78rem">${fmt}</span>` : '')
+    : '<span style="color:var(--text-muted)">Nessun presente selezionato</span>';
+}
+
+function toggleBalance(pid) {
+  BM.present = BM.present.includes(pid) ? BM.present.filter(x => x !== pid) : [...BM.present, pid];
+  renderBalanceChips();
+}
+function balanceSelectAll() { BM.present = loadData().players.map(p => p.id); renderBalanceChips(); }
+function balanceClear()     { BM.present = []; renderBalanceChips(); document.getElementById('balanceResults').innerHTML = ''; }
+
+// Forza di ogni giocatore = media punti/partita nella stagione corrente,
+// corretta con shrinkage bayesiano verso la media di lega: chi ha poche
+// partite viene tirato verso la media generale (evita che 1-2 partite molto
+// alte gonfino la forza). Chi ne ha tante mantiene la sua media reale.
+// Chi non ha ancora giocato prende la media di lega (neutro).
+const STRENGTH_PRIOR = 3; // "partite fittizie" a media di lega: più alto = più prudente
+function playerStrengthMap() {
+  const { players, matches, season } = loadData();
+  const rows = calculateStandings(players, matches, season);
+  let totPts = 0, totGp = 0;
+  rows.forEach(r => { totPts += r.points; totGp += r.played; });
+  const avg = totGp ? totPts / totGp : 10;
+  const map = {};
+  rows.forEach(r => { map[r.id] = (r.points + STRENGTH_PRIOR * avg) / (r.played + STRENGTH_PRIOR); });
+  return { map, avg };
+}
+
+// Quante volte ogni coppia ha giocato nella STESSA squadra (tutte le stagioni).
+function teammatePairFreq(matches) {
+  const freq = {};
+  matches.forEach(m => {
+    if (!m.stats) return;
+    const byTeam = { A: [], B: [] };
+    Object.entries(m.stats).forEach(([pid, ps]) => { (byTeam[ps.team] || (byTeam[ps.team] = [])).push(pid); });
+    ['A', 'B'].forEach(t => {
+      const ids = byTeam[t] || [];
+      for (let i = 0; i < ids.length; i++)
+        for (let j = i + 1; j < ids.length; j++) {
+          const k = [ids[i], ids[j]].sort().join('|');
+          freq[k] = (freq[k] || 0) + 1;
+        }
+    });
+  });
+  return freq;
+}
+
+// Tutte le combinazioni di k elementi da arr.
+function combinations(arr, k) {
+  const res = [], idx = [], n = arr.length;
+  (function rec(start, depth) {
+    if (depth === k) { res.push(idx.map(i => arr[i])); return; }
+    for (let i = start; i <= n - (k - depth); i++) { idx.push(i); rec(i + 1, depth + 1); idx.pop(); }
+  })(0, 0);
+  return res;
+}
+
+function generateBalanced() {
+  const { players, matches } = loadData();
+  const present = BM.present.slice();
+  const results = document.getElementById('balanceResults');
+  if (present.length < 2) { results.innerHTML = '<p style="color:var(--gold);font-size:0.85rem;padding:8px 0">Seleziona almeno 2 giocatori.</p>'; return; }
+  if (present.length > 20) { results.innerHTML = '<p style="color:var(--gold);font-size:0.85rem;padding:8px 0">Troppi giocatori (max 20).</p>'; return; }
+
+  const { map: strength, avg } = playerStrengthMap();
+  const freq = teammatePairFreq(matches);
+  const str = id => (id in strength ? strength[id] : avg);
+  const pairKey = (a, b) => [a, b].sort().join('|');
+  const teamNovelty = ids => {
+    let pen = 0, total = 0, novel = 0;
+    for (let i = 0; i < ids.length; i++)
+      for (let j = i + 1; j < ids.length; j++) {
+        const f = freq[pairKey(ids[i], ids[j])] || 0;
+        pen += f; total++; if (f === 0) novel++;
+      }
+    return { pen, total, novel };
+  };
+
+  const n = present.length;
+  const kA = Math.ceil(n / 2), kB = n - kA;
+  const idxCombos = combinations(present.map((_, i) => i), kA);
+
+  const cands = [];
+  const seen = new Set();
+  idxCombos.forEach(combo => {
+    const teamA = combo.map(i => present[i]);
+    const teamB = present.filter(id => !teamA.includes(id));
+    // Con squadre di pari dimensione ogni split compare due volte (A/B invertite): dedup.
+    if (kA === kB) {
+      const key = [teamA.slice().sort().join(','), teamB.slice().sort().join(',')].sort().join('||');
+      if (seen.has(key)) return;
+      seen.add(key);
+    }
+    const sA = teamA.reduce((s, id) => s + str(id), 0);
+    const sB = teamB.reduce((s, id) => s + str(id), 0);
+    const nA = teamNovelty(teamA), nB = teamNovelty(teamB);
+    cands.push({
+      teamA, teamB, sA, sB,
+      diff: Math.abs(sA - sB),
+      pen: nA.pen + nB.pen,
+      novel: nA.novel + nB.novel,
+      totalPairs: nA.total + nB.total,
+    });
+  });
+
+  // Pool "abbastanza equilibrato": entro una tolleranza dal miglior equilibrio.
+  const minDiff = Math.min(...cands.map(c => c.diff));
+  const tol = Math.max(1.5, avg * 0.12);
+  const pool = cands.filter(c => c.diff <= minDiff + tol);
+  BM._pool = pool;
+  renderBalanceProposals();
+}
+
+function renderBalanceProposals() {
+  const pool = BM._pool || [];
+  const results = document.getElementById('balanceResults');
+  if (!pool.length) { results.innerHTML = ''; return; }
+
+  // Randomizza i pari-merito, poi ordina per: più coppie nuove, penalità minore, equilibrio migliore.
+  const shuffled = pool.map(c => ({ c, r: Math.random() }))
+    .sort((a, b) => a.r - b.r).map(x => x.c)
+    .sort((a, b) => b.novel - a.novel || a.pen - b.pen || a.diff - b.diff);
+
+  const picks = [], keys = new Set();
+  for (const c of shuffled) {
+    const key = c.teamA.slice().sort().join(',');
+    const keyMirror = c.teamB.slice().sort().join(',');
+    if (keys.has(key) || keys.has(keyMirror)) continue;
+    keys.add(key);
+    picks.push(c);
+    if (picks.length === 3) break;
+  }
+
+  const { players } = loadData();
+  const name = id => players.find(p => p.id === id)?.name || '?';
+  const { map: strength, avg } = playerStrengthMap();
+  const str = id => (id in strength ? strength[id] : avg);
+
+  const teamCol = (ids, label, color) => `
+    <div style="flex:1;min-width:0">
+      <p style="font-size:0.7rem;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:${color};margin-bottom:6px;border-bottom:1px solid var(--border);padding-bottom:3px">
+        ${label} <span style="float:right;color:var(--text-dim);font-weight:600">${fmt2(ids.reduce((s,id)=>s+str(id),0))}</span>
+      </p>
+      ${ids.slice().sort((a,b)=>str(b)-str(a)).map(id =>
+        `<p style="font-size:0.82rem;padding:2px 0;display:flex;justify-content:space-between;gap:8px;color:var(--text)">
+          <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${name(id)}</span>
+          <span style="color:var(--text-muted);font-size:0.72rem">${(id in strength) ? fmt2(strength[id]) : 'N/D'}</span>
+        </p>`).join('')}
+    </div>`;
+
+  results.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin:4px 0 10px">
+      <span style="font-size:0.8rem;color:var(--text-dim)">Forza = media pt/partita corretta per poche presenze · N/D = neutro</span>
+      <button class="btn btn-secondary btn-sm" onclick="renderBalanceProposals()">🎲 Rigenera</button>
+    </div>
+    ${picks.map((c, i) => `
+      <div class="card" style="margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px">
+          <h2 style="margin:0">Proposta ${i + 1}</h2>
+          <span style="font-size:0.72rem;color:var(--text-dim)">Δ forza ${fmt2(c.diff)} · ${c.novel}/${c.totalPairs} coppie nuove</span>
+        </div>
+        <div style="display:flex;gap:12px">
+          ${teamCol(c.teamA, 'Squadra A', 'var(--blue)')}
+          ${teamCol(c.teamB, 'Squadra B', 'var(--red)')}
+        </div>
+      </div>`).join('')}`;
 }
 
 // ─── BACKUP ───────────────────────────────────────────────────────────────────
