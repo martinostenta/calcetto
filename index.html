@@ -39,9 +39,9 @@
 
     /* ── Nav ── */
     nav { background: var(--surface); display: flex; border-bottom: 1px solid var(--border); }
-    nav button { flex: 1; padding: 11px 4px; border: none; background: none; cursor: pointer; font-family: 'DM Sans', sans-serif; font-size: 0.78rem; font-weight: 600; color: var(--text-muted); border-bottom: 2px solid transparent; transition: all .2s; }
-    nav button:hover { color: var(--text-dim); }
-    nav button.active { color: var(--green); border-bottom-color: var(--green); }
+    nav button { flex: 1; padding: 11px 4px; border: none; background: none; cursor: pointer; font-family: 'DM Sans', sans-serif; font-size: 0.79rem; font-weight: 600; color: var(--text); border-bottom: 2px solid transparent; transition: all .2s; }
+    nav button:hover { color: var(--green); }
+    nav button.active { color: var(--green); font-weight: 700; border-bottom-color: var(--green); }
 
     /* ── Main ── */
     main { padding: 14px; max-width: 960px; margin: 0 auto; }
@@ -77,9 +77,10 @@
     .btn { display: inline-flex; align-items: center; gap: 4px; padding: 8px 14px; border-radius: 8px; border: none; cursor: pointer; font-family: 'DM Sans', sans-serif; font-size: 0.84rem; font-weight: 700; transition: all .15s; }
     .btn:hover { transform: translateY(-1px); }
     .btn:active { transform: translateY(0); }
-    .btn-primary { background: var(--green-dim); color: var(--green); }
-    .btn-primary:hover { background: #2a7a45; }
-    .btn-secondary { background: var(--surface-up); color: var(--green); border: 1px solid var(--border); }
+    .btn-primary { background: var(--green); color: #0f1410; }
+    .btn-primary:hover { background: #6ee79a; }
+    .btn-secondary { background: var(--surface-up); color: var(--text); border: 1px solid var(--border-light); }
+    .btn-secondary:hover { border-color: var(--green); color: var(--green); }
     .btn-danger { background: var(--red-bg); color: var(--red); }
     .btn-warning { background: rgba(251,191,36,.12); color: var(--gold); }
     .btn-sm { padding: 5px 9px; font-size: 0.74rem; }
@@ -138,8 +139,8 @@
     .stat-card .sc-sub { font-size: 0.74rem; color: var(--text-dim); }
 
     /* ── Action buttons ── */
-    .export-btn { margin-top: 12px; background: var(--green-dim); color: var(--green); border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-family: 'DM Sans', sans-serif; font-size: 0.86rem; font-weight: 700; transition: all .15s; }
-    .export-btn:hover { background: #2a7a45; }
+    .export-btn { margin-top: 12px; background: var(--green); color: #0f1410; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-family: 'DM Sans', sans-serif; font-size: 0.86rem; font-weight: 700; transition: all .15s; }
+    .export-btn:hover { background: #6ee79a; }
     .season-btn { margin-top: 10px; margin-left: 10px; background: var(--gold-dim); color: var(--gold); border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-family: 'DM Sans', sans-serif; font-size: 0.86rem; font-weight: 700; transition: all .15s; }
 
     /* ── Toast ── */
@@ -1488,7 +1489,7 @@ function renderProfiles(selectedPid) {
       <table>
         <thead><tr>
           <th>Compagno</th><th>Punti</th><th>G</th><th>A</th>
-          <th>-G</th><th>O</th><th>Insieme</th><th>W</th><th>D</th><th>L</th>
+          <th>-G</th><th>O</th><th>PG</th><th>W</th><th>D</th><th>L</th>
           <th>Media P</th><th>Media G</th><th>Media A</th><th>Media G-</th><th>% Vitt</th>
         </tr></thead>
         <tbody>${mates.map(s => {
