@@ -71,10 +71,23 @@
     .chip.in-a .badge { background: var(--blue); color: white; }
     .chip.in-b { background: #fce4ec; border-color: var(--red); color: var(--red); }
     .chip.in-b .badge { background: var(--red); color: white; }
+    .chip.selected { background: #e8f5e9; border-color: var(--green); color: var(--green); font-weight: 600; }
 
     .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
-    @media (max-width: 540px) { .two-col, .three-col { grid-template-columns: 1fr; } }
+
+    /* Griglie di card (statistiche / relazioni / record / partite) */
+    .sgrid { display: grid; gap: 8px; }
+    .sgrid-3 { grid-template-columns: repeat(3, 1fr); }
+    .sgrid-4 { grid-template-columns: repeat(4, 1fr); }
+    .sgrid-5 { grid-template-columns: repeat(5, 1fr); }
+    .mgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+    @media (max-width: 600px) {
+      .two-col, .three-col { grid-template-columns: 1fr; }
+      .sgrid-3, .sgrid-4, .sgrid-5 { grid-template-columns: repeat(2, 1fr); }
+      .mgrid { grid-template-columns: 1fr; }
+    }
 
     /* Goals list */
     .goal-item { display: flex; align-items: center; gap: 7px; padding: 8px 10px; background: #f8fdf8; border-radius: 7px; margin-bottom: 6px; border-left: 4px solid var(--green-light); font-size: 0.84rem; }
@@ -104,18 +117,32 @@
   <h1>Calcetto</h1>
   <div style="display:flex;align-items:center;gap:8px;margin-left:auto">
     <span id="saveStatus" style="font-size:0.7rem;transition:color .3s"></span>
-    <button id="connectFileBtn" onclick="connectFile()" style="font-size:0.7rem;padding:3px 8px;border-radius:5px;border:1px solid #ccc;background:white;cursor:pointer;display:none">📂 Collega file</button>
-    <span id="storageMode" style="font-size:0.7rem;color:#aaa"></span>
     <span id="seasonBadge"></span>
+    <button id="loginBtn" onclick="showLoginModal()" style="font-size:0.7rem;padding:3px 10px;border-radius:5px;border:1px solid rgba(255,255,255,.3);background:rgba(255,255,255,.15);color:white;cursor:pointer">🔒 Admin</button>
+    <button id="logoutBtn" onclick="logout()" style="font-size:0.7rem;padding:3px 10px;border-radius:5px;border:1px solid rgba(255,255,255,.3);background:rgba(255,255,255,.15);color:white;cursor:pointer;display:none">🔓 Esci</button>
   </div>
 </header>
 
+<!-- Login modal -->
+<div id="loginModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:999;display:none;align-items:center;justify-content:center">
+  <div style="background:white;border-radius:12px;padding:24px;width:280px;text-align:center">
+    <h3 style="margin-bottom:12px;color:#2d6a2d">Accesso Admin</h3>
+    <input type="password" id="pinInput" placeholder="PIN" style="width:100%;padding:10px;border:1.5px solid #ddd;border-radius:8px;font-size:1rem;text-align:center;margin-bottom:12px" onkeydown="if(event.key==='Enter')doLogin()">
+    <div style="display:flex;gap:8px">
+      <button onclick="closeLoginModal()" style="flex:1;padding:8px;border-radius:8px;border:1px solid #ddd;background:white;cursor:pointer">Annulla</button>
+      <button onclick="doLogin()" style="flex:1;padding:8px;border-radius:8px;border:none;background:#2d6a2d;color:white;cursor:pointer;font-weight:600">Entra</button>
+    </div>
+    <p id="loginError" style="color:#c62828;font-size:0.8rem;margin-top:8px;display:none">PIN errato</p>
+  </div>
+</div>
+
 <nav>
   <button class="active" onclick="showTab('classifica')">Classifica</button>
-  <button onclick="showTab('partita')">Nuova Partita</button>
+  <button class="admin-tab" onclick="showTab('partita')" style="display:none">Nuova Partita</button>
   <button onclick="showTab('storico')">Storico</button>
   <button onclick="showTab('profili')">Profili</button>
-  <button onclick="showTab('giocatori')">Giocatori</button>
+  <button onclick="showTab('bilancia')">Team picker</button>
+  <button class="admin-tab" onclick="showTab('giocatori')" style="display:none">Giocatori</button>
 </nav>
 
 <main>
@@ -133,7 +160,7 @@
       </table>
     </div>
     <button class="export-btn" onclick="exportImage()">📸 Esporta classifica</button>
-    <button class="season-btn" onclick="newSeason()">🏆 Nuova Stagione</button>
+    <button class="season-btn admin-only" onclick="newSeason()" style="display:none">🏆 Nuova Stagione</button>
     <div id="chartContainer" class="card" style="margin-top:14px;display:none">
       <h2 style="margin-bottom:10px">Progressione punti</h2>
       <canvas id="progressChart"></canvas>
@@ -225,6 +252,22 @@
     <div id="profileContent"></div>
   </section>
 
+  <!-- BILANCIA -->
+  <section id="bilancia" class="section">
+    <div class="card">
+      <h2>Chi gioca stasera?</h2>
+      <p style="font-size:0.79rem;color:#888;margin-bottom:10px">Tocca i presenti. Il sistema propone squadre equilibrate per forza, favorendo accoppiamenti visti raramente.</p>
+      <div class="chips" id="balanceChips"></div>
+      <div id="balanceCount" style="margin-top:10px;font-size:0.82rem"></div>
+      <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+        <button class="btn btn-secondary btn-sm" onclick="balanceSelectAll()">Tutti</button>
+        <button class="btn btn-secondary btn-sm" onclick="balanceClear()">Nessuno</button>
+        <button class="btn btn-primary" onclick="generateBalanced()">⚖️ Genera proposte</button>
+      </div>
+    </div>
+    <div id="balanceResults"></div>
+  </section>
+
   <!-- GIOCATORI -->
   <section id="giocatori" class="section">
     <div class="card">
@@ -254,159 +297,91 @@
 <canvas id="exportCanvas" style="display:none"></canvas>
 
 <script>
-// ─── SEED DATA (5 partite importate dall'Excel) ───────────────────────────────
-const SEED = {"players":[{"id":"p_f8b808e8","name":"Blando"},{"id":"p_86862b8d","name":"Caio"},{"id":"p_6272fa1b","name":"Davide"},{"id":"p_9d04b657","name":"Fede"},{"id":"p_8811b3c6","name":"Frizzo"},{"id":"p_d4db44d6","name":"Guido"},{"id":"p_f90d5f13","name":"Joz"},{"id":"p_a42414d0","name":"Laco"},{"id":"p_4c7f75b6","name":"Luca"},{"id":"p_b3043002","name":"Marco G."},{"id":"p_3731e895","name":"Marty"},{"id":"p_b63216ec","name":"Mustafa"},{"id":"p_bfeaf011","name":"Piero"},{"id":"p_87fc91be","name":"Scià"},{"id":"p_d479c2a5","name":"Teo"},{"id":"p_74a74689","name":"Thib"}],"matches":[{"id":"imported_1","type":"imported","date":"2026-01-20","season":2026,"stats":{"p_d4db44d6":{"goals":0,"assists":1,"conceded":2,"ownGoals":0,"team":"A","result":"W","teamSize":5},"p_f90d5f13":{"goals":1,"assists":1,"conceded":0,"ownGoals":0,"team":"A","result":"W","teamSize":5},"p_b3043002":{"goals":3,"assists":2,"conceded":1,"ownGoals":0,"team":"A","result":"W","teamSize":5},"p_bfeaf011":{"goals":1,"assists":1,"conceded":1,"ownGoals":0,"team":"A","result":"W","teamSize":5},"p_3731e895":{"goals":4,"assists":2,"conceded":0,"ownGoals":0,"team":"A","result":"W","teamSize":5},"p_74a74689":{"goals":0,"assists":0,"conceded":3,"ownGoals":0,"team":"B","result":"L","teamSize":5},"p_87fc91be":{"goals":2,"assists":0,"conceded":2,"ownGoals":0,"team":"B","result":"L","teamSize":5},"p_6272fa1b":{"goals":1,"assists":3,"conceded":0,"ownGoals":0,"team":"B","result":"L","teamSize":5},"p_f8b808e8":{"goals":0,"assists":1,"conceded":3,"ownGoals":0,"team":"B","result":"L","teamSize":5},"p_9d04b657":{"goals":1,"assists":0,"conceded":1,"ownGoals":0,"team":"B","result":"L","teamSize":5}}},{"id":"imported_2","type":"imported","date":"2026-01-27","season":2026,"stats":{"p_f90d5f13":{"goals":2,"assists":1,"conceded":2,"ownGoals":0,"team":"A","result":"W","teamSize":5},"p_d4db44d6":{"goals":0,"assists":2,"conceded":2,"ownGoals":0,"team":"A","result":"W","teamSize":5},"p_86862b8d":{"goals":0,"assists":1,"conceded":1,"ownGoals":0,"team":"A","result":"W","teamSize":5},"p_9d04b657":{"goals":1,"assists":1,"conceded":0,"ownGoals":0,"team":"A","result":"W","teamSize":5},"p_a42414d0":{"goals":4,"assists":1,"conceded":1,"ownGoals":0,"team":"A","result":"W","teamSize":5},"p_6272fa1b":{"goals":2,"assists":2,"conceded":0,"ownGoals":0,"team":"B","result":"L","teamSize":5},"p_87fc91be":{"goals":1,"assists":0,"conceded":1,"ownGoals":0,"team":"B","result":"L","teamSize":5},"p_bfeaf011":{"goals":0,"assists":0,"conceded":2,"ownGoals":0,"team":"B","result":"L","teamSize":5},"p_d479c2a5":{"goals":1,"assists":0,"conceded":2,"ownGoals":0,"team":"B","result":"L","teamSize":5},"p_3731e895":{"goals":1,"assists":1,"conceded":1,"ownGoals":0,"team":"B","result":"L","teamSize":5}}},{"id":"imported_3","type":"imported","date":"2026-02-03","season":2026,"stats":{"p_86862b8d":{"goals":0,"assists":1,"conceded":0,"ownGoals":0,"team":"A","result":"L","teamSize":5},"p_87fc91be":{"goals":0,"assists":0,"conceded":1,"ownGoals":0,"team":"A","result":"L","teamSize":5},"p_6272fa1b":{"goals":1,"assists":1,"conceded":0,"ownGoals":0,"team":"A","result":"L","teamSize":5},"p_4c7f75b6":{"goals":0,"assists":0,"conceded":4,"ownGoals":0,"team":"A","result":"L","teamSize":5},"p_f8b808e8":{"goals":2,"assists":0,"conceded":0,"ownGoals":0,"team":"A","result":"L","teamSize":5},"p_9d04b657":{"goals":0,"assists":2,"conceded":2,"ownGoals":1,"team":"B","result":"W","teamSize":5},"p_a42414d0":{"goals":2,"assists":0,"conceded":0,"ownGoals":0,"team":"B","result":"W","teamSize":5},"p_d4db44d6":{"goals":2,"assists":0,"conceded":2,"ownGoals":0,"team":"B","result":"W","teamSize":5},"p_bfeaf011":{"goals":0,"assists":2,"conceded":0,"ownGoals":0,"team":"B","result":"W","teamSize":5},"p_3731e895":{"goals":2,"assists":1,"conceded":0,"ownGoals":0,"team":"B","result":"W","teamSize":5}}},{"id":"imported_4","type":"imported","date":"2026-02-10","season":2026,"stats":{"p_87fc91be":{"goals":1,"assists":0,"conceded":0,"ownGoals":0,"team":"A","result":"D","teamSize":5},"p_f90d5f13":{"goals":1,"assists":1,"conceded":0,"ownGoals":0,"team":"A","result":"D","teamSize":5},"p_8811b3c6":{"goals":2,"assists":0,"conceded":3,"ownGoals":0,"team":"A","result":"D","teamSize":5},"p_f8b808e8":{"goals":1,"assists":1,"conceded":2,"ownGoals":0,"team":"A","result":"D","teamSize":5},"p_bfeaf011":{"goals":0,"assists":0,"conceded":0,"ownGoals":0,"team":"A","result":"D","teamSize":5},"p_86862b8d":{"goals":1,"assists":0,"conceded":0,"ownGoals":0,"team":"B","result":"D","teamSize":5},"p_d4db44d6":{"goals":3,"assists":0,"conceded":2,"ownGoals":0,"team":"B","result":"D","teamSize":5},"p_6272fa1b":{"goals":1,"assists":3,"conceded":1,"ownGoals":0,"team":"B","result":"D","teamSize":5},"p_3731e895":{"goals":0,"assists":0,"conceded":1,"ownGoals":0,"team":"B","result":"D","teamSize":5},"p_9d04b657":{"goals":0,"assists":0,"conceded":1,"ownGoals":0,"team":"B","result":"D","teamSize":5}}},{"id":"imported_5","type":"imported","date":"2026-02-17","season":2026,"stats":{"p_f8b808e8":{"goals":0,"assists":0,"conceded":1,"ownGoals":0,"team":"A","result":"L","teamSize":5},"p_9d04b657":{"goals":0,"assists":0,"conceded":0,"ownGoals":0,"team":"A","result":"L","teamSize":5},"p_b63216ec":{"goals":0,"assists":0,"conceded":2,"ownGoals":0,"team":"A","result":"L","teamSize":5},"p_86862b8d":{"goals":0,"assists":0,"conceded":2,"ownGoals":0,"team":"A","result":"L","teamSize":5},"p_6272fa1b":{"goals":1,"assists":0,"conceded":0,"ownGoals":0,"team":"A","result":"L","teamSize":5},"p_87fc91be":{"goals":1,"assists":0,"conceded":1,"ownGoals":0,"team":"B","result":"W","teamSize":5},"p_a42414d0":{"goals":3,"assists":2,"conceded":0,"ownGoals":0,"team":"B","result":"W","teamSize":5},"p_f90d5f13":{"goals":1,"assists":1,"conceded":0,"ownGoals":0,"team":"B","result":"W","teamSize":5},"p_bfeaf011":{"goals":1,"assists":0,"conceded":0,"ownGoals":0,"team":"B","result":"W","teamSize":5},"p_4c7f75b6":{"goals":0,"assists":0,"conceded":0,"ownGoals":0,"team":"B","result":"W","teamSize":5}}}],"season":2026};
-
 // ─── DATA ─────────────────────────────────────────────────────────────────────
 let _data = null;
-let _fileHandle = null; // File System Access API handle
 
 function loadData() { return _data; }
 
 function saveData(d) {
   _data = d;
-  if (_fileHandle) {
-    _fileHandle.createWritable()
-      .then(w => w.write(JSON.stringify(d, null, 2)).then(() => w.close()))
-      .then(() => _setSaveStatus('ok'))
-      .catch(() => _setSaveStatus('err'));
-  } else {
-    localStorage.setItem('calcetto_players', JSON.stringify(d.players));
-    localStorage.setItem('calcetto_matches',  JSON.stringify(d.matches));
-    localStorage.setItem('calcetto_season',   JSON.stringify(d.season));
-    _setSaveStatus('ok');
-  }
+  _setSaveStatus('saving');
+  const token = sessionStorage.getItem('admin_token');
+  if (!token) { _setSaveStatus('ok'); return; } // visitatore, non salva
+  fetch('/api/save', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+    body: JSON.stringify(d),
+  })
+  .then(r => { if (!r.ok) throw new Error(); _setSaveStatus('ok'); })
+  .catch(() => _setSaveStatus('err'));
 }
 
 function _setSaveStatus(s) {
   const el = document.getElementById('saveStatus');
   if (!el) return;
+  if (s === 'saving') { el.textContent = '⏳ Salvataggio...'; el.style.color = '#e65100'; return; }
   el.textContent = s === 'ok' ? '● Salvato' : '⚠ Errore salvataggio';
   el.style.color  = s === 'ok' ? '#4caf50' : '#e53935';
   clearTimeout(el._t);
   el._t = setTimeout(() => { el.textContent = ''; }, 2500);
 }
 
-function _updateStorageUI() {
-  const btn  = document.getElementById('connectFileBtn');
-  const mode = document.getElementById('storageMode');
-  if (_fileHandle) {
-    btn.style.display  = 'none';
-    mode.textContent   = '💾 ' + _fileHandle.name;
-    mode.style.color   = '#4caf50';
-  } else if (_pendingHandle) {
-    btn.textContent    = '🔓 Riconnetti file';
-    btn.onclick        = reconnectFile;
-    btn.style.display  = '';
-    mode.textContent   = '';
-  } else {
-    btn.textContent    = '📂 Collega file';
-    btn.onclick        = connectFile;
-    btn.style.display  = window.showOpenFilePicker ? '' : 'none';
-    mode.textContent   = 'browser';
-    mode.style.color   = '#aaa';
-  }
-}
-
-// ── IndexedDB: persiste il file handle tra sessioni ──
-async function _idbGet(key) {
-  return new Promise((res, rej) => {
-    const req = indexedDB.open('calcetto_fs', 1);
-    req.onupgradeneeded = e => e.target.result.createObjectStore('handles');
-    req.onsuccess = e => {
-      const tx = e.target.result.transaction('handles', 'readonly');
-      const r  = tx.objectStore('handles').get(key);
-      r.onsuccess = ev => res(ev.target.result);
-      r.onerror   = rej;
-    };
-    req.onerror = rej;
-  });
-}
-async function _idbSet(key, val) {
-  return new Promise((res, rej) => {
-    const req = indexedDB.open('calcetto_fs', 1);
-    req.onupgradeneeded = e => e.target.result.createObjectStore('handles');
-    req.onsuccess = e => {
-      const tx = e.target.result.transaction('handles', 'readwrite');
-      tx.objectStore('handles').put(val, key);
-      tx.oncomplete = res;
-      tx.onerror    = rej;
-    };
-    req.onerror = rej;
-  });
-}
-
-async function _loadFromHandle(handle) {
-  const file = await handle.getFile();
-  const json = JSON.parse(await file.text());
-  if (!json.players || !json.matches) throw new Error('Formato non valido');
-  _fileHandle = handle;
-  _data = json;
-  _updateStorageUI();
-  renderStandings();
-}
-
-async function connectFile() {
-  if (!window.showOpenFilePicker) {
-    alert('Il tuo browser non supporta la File System API.\nUsa Chrome o Edge, oppure usa il pulsante "Esporta JSON" per fare backup manuali.');
-    return;
-  }
-  try {
-    const [handle] = await window.showOpenFilePicker({
-      types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }],
-      multiple: false,
-    });
-    await _loadFromHandle(handle);
-    await _idbSet('fileHandle', handle);
-    _setSaveStatus('ok');
-  } catch (e) {
-    if (e.name !== 'AbortError') alert('Errore: ' + e.message);
-  }
-}
-
 async function _initData() {
-  // Fallback: localStorage o SEED
-  _data = {
-    players: JSON.parse(localStorage.getItem('calcetto_players') || 'null') || SEED.players,
-    matches:  JSON.parse(localStorage.getItem('calcetto_matches')  || 'null') || SEED.matches,
-    season:   JSON.parse(localStorage.getItem('calcetto_season')   || 'null') || SEED.season,
-  };
-
-  if (!window.showOpenFilePicker) { _updateStorageUI(); return; }
-
   try {
-    const handle = await _idbGet('fileHandle');
-    if (!handle) { _updateStorageUI(); return; }
-
-    const perm = await handle.queryPermission({ mode: 'readwrite' });
-    if (perm === 'granted') {
-      // Permesso già attivo: riconnessione automatica
-      await _loadFromHandle(handle);
-    } else {
-      // Permesso scaduto: mostra pulsante "Riconnetti" (un click, niente file picker)
-      _pendingHandle = handle;
-      _updateStorageUI();
-    }
+    const res = await fetch('/calcetto_data.json');
+    if (!res.ok) throw new Error();
+    _data = await res.json();
   } catch {
-    _updateStorageUI();
+    _data = { players: [], matches: [], season: new Date().getFullYear() };
   }
+  // Ripristina sessione admin se presente
+  if (sessionStorage.getItem('admin_token')) _setAdminUI(true);
 }
 
-let _pendingHandle = null;
-
-async function reconnectFile() {
-  try {
-    const perm = await _pendingHandle.requestPermission({ mode: 'readwrite' });
-    if (perm === 'granted') {
-      await _loadFromHandle(_pendingHandle);
-      _pendingHandle = null;
-      _setSaveStatus('ok');
-    }
-  } catch (e) {
-    alert('Errore: ' + e.message);
-  }
-}
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
+
+// ─── AUTH ─────────────────────────────────────────────────────────────────────
+function showLoginModal() {
+  const m = document.getElementById('loginModal');
+  m.style.display = 'flex';
+  document.getElementById('pinInput').value = '';
+  document.getElementById('loginError').style.display = 'none';
+  setTimeout(() => document.getElementById('pinInput').focus(), 100);
+}
+function closeLoginModal() { document.getElementById('loginModal').style.display = 'none'; }
+
+async function doLogin() {
+  const pin = document.getElementById('pinInput').value.trim();
+  if (!pin) return;
+  try {
+    const res = await fetch('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pin }),
+    });
+    if (!res.ok) throw new Error();
+    const { token } = await res.json();
+    sessionStorage.setItem('admin_token', token);
+    closeLoginModal();
+    _setAdminUI(true);
+  } catch {
+    document.getElementById('loginError').style.display = 'block';
+  }
+}
+
+function logout() {
+  sessionStorage.removeItem('admin_token');
+  _setAdminUI(false);
+  showTab('classifica');
+}
+
+function _setAdminUI(isAdmin) {
+  document.querySelectorAll('.admin-tab, .admin-only').forEach(el => el.style.display = isAdmin ? '' : 'none');
+  document.getElementById('loginBtn').style.display = isAdmin ? 'none' : '';
+  document.getElementById('logoutBtn').style.display = isAdmin ? '' : 'none';
+  // Nascondi anche delete buttons e edit date nello storico se non admin
+  document.querySelectorAll('.match-delete-btn').forEach(el => el.style.visibility = isAdmin ? 'visible' : 'hidden');
+}
 
 // ─── SCORING ──────────────────────────────────────────────────────────────────
 const PT = { PRESENCE: 10, GOAL: 5, ASSIST: 3, CONCEDED: -1, OWN_GOAL: -3, WIN: 60, DRAW: 30 };
@@ -487,11 +462,17 @@ function showTab(tab) {
   document.querySelectorAll('.section').forEach(el => el.classList.remove('active'));
   document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
   document.getElementById(tab).classList.add('active');
-  document.querySelectorAll('nav button')[['classifica','partita','storico','profili','giocatori'].indexOf(tab)].classList.add('active');
+  // Trova il bottone giusto per data-tab o testo
+  document.querySelectorAll('nav button').forEach(b => {
+    const t = b.textContent.trim().toLowerCase();
+    const map = { classifica:'classifica', 'nuova partita':'partita', storico:'storico', profili:'profili', 'team picker':'bilancia', giocatori:'giocatori' };
+    if (map[t] === tab) b.classList.add('active');
+  });
   if (tab === 'classifica') renderStandings();
   if (tab === 'partita')    initPartita();
   if (tab === 'storico')    renderHistory();
   if (tab === 'profili')    renderProfiles();
+  if (tab === 'bilancia')   initBalance();
   if (tab === 'giocatori')  renderPlayers();
 }
 
@@ -961,7 +942,7 @@ function renderHistory() {
       .map(n => `<span style="white-space:nowrap"><strong>${Math.abs(n)}L:</strong> ${coldPlayers.filter(p=>p.streak===n).map(p=>p.name).join(', ')}</span>`).join(' &nbsp;·&nbsp; ');
 
     const statsHtml = `
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px">
+      <div class="sgrid sgrid-3" style="margin-bottom:16px">
         ${topGoal ? `<div class="stat-card">
           <span class="sc-label">Capocannoniere</span>
           <span class="sc-icon">⚽</span>
@@ -1029,7 +1010,7 @@ function renderHistory() {
         })() : '';
 
       return `<div class="match-card" style="padding:0;overflow:hidden;display:flex;flex-direction:column;position:relative">
-        <button onclick="deleteMatch('${m.id}')" style="position:absolute;top:7px;right:7px;visibility:${canDelete?'visible':'hidden'};width:18px;height:18px;border-radius:50%;border:1px solid #e0e0e0;background:white;color:#bbb;cursor:pointer;font-size:0.6rem;padding:0;display:flex;align-items:center;justify-content:center;line-height:1">✕</button>
+        <button class="match-delete-btn" onclick="deleteMatch('${m.id}')" style="position:absolute;top:7px;right:7px;visibility:${canDelete && sessionStorage.getItem('admin_token')?'visible':'hidden'};width:18px;height:18px;border-radius:50%;border:1px solid #e0e0e0;background:white;color:#bbb;cursor:pointer;font-size:0.6rem;padding:0;display:flex;align-items:center;justify-content:center;line-height:1">✕</button>
         <button onclick="exportMatchImage('${m.id}')" title="Esporta immagine" style="position:absolute;top:7px;left:7px;width:18px;height:18px;border-radius:50%;border:1px solid #e0e0e0;background:white;color:#888;cursor:pointer;font-size:0.6rem;padding:0;display:flex;align-items:center;justify-content:center;line-height:1">📸</button>
         <div style="display:flex;flex-direction:column;align-items:center;padding:10px 0 8px;gap:4px">
           <div style="display:inline-flex;align-items:center;gap:8px;background:#f5f5f5;border:1.5px solid #d4edda;border-radius:20px;padding:4px 14px">
@@ -1050,7 +1031,7 @@ function renderHistory() {
     return `<div style="margin-bottom:24px">
       <p style="font-weight:700;color:var(--green);margin-bottom:10px;font-size:0.9rem">🏆 Stagione ${sy} — ${sm.length} partite</p>
       ${statsHtml}
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">${cards}</div>
+      <div class="mgrid">${cards}</div>
     </div>`;
   }).join('');
 }
@@ -1311,6 +1292,32 @@ function calcPlayerProfile(pid, matches, players) {
   };
 }
 
+// Mini-classifica dei compagni: stesse metriche della classifica individuale,
+// ma calcolate solo sulle partite giocate INSIEME (stessa squadra) al giocatore pid.
+// Ordinata per numero di partite insieme (poi per punti).
+function calcTeammateStandings(pid, matches, players) {
+  const getName = id => players.find(p => p.id === id)?.name || '?';
+  const agg = {};
+  matches.forEach(m => {
+    const mine = m.stats && m.stats[pid];
+    if (!mine) return;
+    Object.entries(m.stats).forEach(([tid, ps]) => {
+      if (tid === pid || ps.team !== mine.team) return; // solo compagni di squadra
+      if (!agg[tid]) agg[tid] = { id: tid, name: getName(tid), points: 0, goals: 0, assists: 0, conceded: 0, ownGoals: 0, played: 0, wins: 0, draws: 0, losses: 0 };
+      const a = agg[tid];
+      a.played++;
+      a.points += PT.PRESENCE + ps.goals*PT.GOAL + ps.assists*PT.ASSIST +
+                  ps.conceded*PT.CONCEDED + ps.ownGoals*PT.OWN_GOAL +
+                  (ps.result==='W' ? PT.WIN/ps.teamSize : ps.result==='D' ? PT.DRAW/ps.teamSize : 0);
+      a.goals += ps.goals; a.assists += ps.assists; a.conceded += ps.conceded; a.ownGoals += ps.ownGoals;
+      if      (ps.result === 'W') a.wins++;
+      else if (ps.result === 'D') a.draws++;
+      else                        a.losses++;
+    });
+  });
+  return Object.values(agg).sort((a, b) => b.played - a.played || b.points - a.points);
+}
+
 function renderProfiles(selectedPid) {
   const { players, matches } = loadData();
   const c = document.getElementById('profileContent');
@@ -1360,10 +1367,6 @@ function renderProfiles(selectedPid) {
   const lMatches  = perMatch.filter(ms => ms.result === 'L');
   const avgPtsW   = wMatches.length ? Math.round(wMatches.reduce((s, ms) => s + ms.pts, 0) / wMatches.length) : null;
   const avgPtsL   = lMatches.length ? Math.round(lMatches.reduce((s, ms) => s + ms.pts, 0) / lMatches.length) : null;
-  const asA = perMatch.filter(ms => ms.team === 'A');
-  const asB = perMatch.filter(ms => ms.team === 'B');
-  const winRateA = asA.length >= 2 ? Math.round(asA.filter(ms => ms.result === 'W').length / asA.length * 100) : null;
-  const winRateB = asB.length >= 2 ? Math.round(asB.filter(ms => ms.result === 'W').length / asB.length * 100) : null;
 
   const prof = calcPlayerProfile(pid, matches, players);
 
@@ -1400,33 +1403,49 @@ function renderProfiles(selectedPid) {
     `<span class="chip ${pl.id === pid ? 'team-a' : ''}" style="cursor:pointer" onclick="renderProfiles('${pl.id}')">${pl.name}</span>`
   ).join('');
 
-  // ── Stats aggregate HTML ──
-  let aggHtml = '';
-  const aggItems = [];
-  if (hatTricks > 0) aggItems.push(`<span>🎩 <strong>${hatTricks}</strong> tripletta${hatTricks > 1 ? 'e' : ''} (3+ gol)</span>`);
-  if (avgPtsW !== null) aggItems.push(`<span>📈 Media punti in vittorie: <strong>${avgPtsW}</strong></span>`);
-  if (avgPtsL !== null) aggItems.push(`<span>📉 Media punti in sconfitte: <strong>${avgPtsL}</strong></span>`);
-  if (winRateA !== null && winRateB !== null) {
-    const better = winRateA > winRateB ? 'A' : winRateA < winRateB ? 'B' : null;
-    aggItems.push(`<span>🔀 Vittorie squadra A: <strong>${winRateA}%</strong> (${asA.length}p) · B: <strong>${winRateB}%</strong> (${asB.length}p)${better ? ` — meglio in <strong>${better}</strong>` : ''}</span>`);
-  }
-  if (aggItems.length) {
-    aggHtml = `<div class="card" style="margin-top:10px">
-      <h2 style="margin-bottom:8px;font-size:0.85rem">📊 Statistiche</h2>
-      <div style="display:flex;flex-direction:column;gap:6px;font-size:0.8rem;color:#444">${aggItems.join('')}</div>
-    </div>`;
-  }
+  // ── Classifica compagni (partite giocate insieme) ──
+  const mates = calcTeammateStandings(pid, matches, players);
+  const matesTable = mates.length ? `
+    <div class="standings-wrap" style="margin-top:2px">
+      <table>
+        <thead><tr>
+          <th>Compagno</th><th>Punti</th><th>G</th><th>A</th>
+          <th>-G</th><th>O</th><th>Insieme</th><th>W</th><th>D</th><th>L</th>
+          <th>Media P</th><th>Media G</th><th>Media A</th><th>Media G-</th><th>% Vitt</th>
+        </tr></thead>
+        <tbody>${mates.map(s => {
+          const pg = s.played;
+          return `<tr>
+            <td>${s.name}</td>
+            <td class="pts">${Math.round(s.points)}</td>
+            <td>${s.goals}</td><td>${s.assists}</td><td>${s.conceded}</td><td>${s.ownGoals}</td>
+            <td>${pg}</td><td>${s.wins}</td><td>${s.draws}</td><td>${s.losses}</td>
+            <td>${fmt2(s.points/pg)}</td>
+            <td>${fmt2(s.goals/pg)}</td>
+            <td>${fmt2(s.assists/pg)}</td>
+            <td>${fmt2(s.conceded/pg)}</td>
+            <td>${Math.round(s.wins/pg*100)}%</td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table>
+    </div>` : '<p style="font-size:0.78rem;color:#bbb">Nessuna partita giocata insieme ad altri.</p>';
+
+  // ── Stats aggregate items ──
+  const statParts = [`${played} partite`, `${Math.round(totalPts)} pt`, `${goals} gol`, `${assists} assist`, `${played ? Math.round(wins/played*100) : 0}% vittorie`];
+  if (avgPtsW !== null) statParts.push(`media V: ${avgPtsW} pt`);
+  if (avgPtsL !== null) statParts.push(`media S: ${avgPtsL} pt`);
+  if (hatTricks > 0) statParts.push(`${hatTricks} tripletta${hatTricks > 1 ? 'e' : ''}`);
 
   c.innerHTML = `
     <div class="card" style="margin-bottom:12px">
       <div class="chips" style="margin-bottom:0">${chips}</div>
     </div>
     <div class="card">
-      <h2 style="margin-bottom:2px">${p.name}</h2>
-      <p style="font-size:0.75rem;color:#aaa;margin-bottom:14px">${played} partite · ${Math.round(totalPts)} pt · ${goals} gol · ${assists} assist · ${played ? Math.round(wins/played*100) : 0}% vittorie</p>
+      <h2 style="margin-bottom:6px">${p.name}</h2>
+      <p style="font-size:0.75rem;color:#888;margin-bottom:16px;line-height:1.6">${statParts.join(' · ')}</p>
 
       <h3 style="font-size:0.78rem;color:#666;margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">Relazioni</h3>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px">
+      <div class="sgrid sgrid-4" style="margin-bottom:16px">
         ${relCard('🧤', 'Vittima', 'Portiere a cui segni di più', prof.keeperBeaten)}
         ${relCard('⚔️', 'Killer', 'Chi ti segna di più in porta', prof.killer)}
         ${relCard('👟', 'Assistman per', 'A chi dai più assist', prof.assistedTo)}
@@ -1438,15 +1457,210 @@ function renderProfiles(selectedPid) {
       </div>
 
       <h3 style="font-size:0.78rem;color:#666;margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">Record personali</h3>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+      <div class="sgrid sgrid-5">
         ${recCard('⚽', 'Record gol', recGoals)}
         ${recCard('👟', 'Record assist', recAssists)}
         ${recCard('🧤', 'Record subiti', recConceded)}
         ${recCard('🏆', 'Miglior partita', bestMatch)}
         ${recCard('📉', 'Peggior partita', worstMatch)}
       </div>
+
+      <h3 style="font-size:0.78rem;color:#666;margin:16px 0 8px;text-transform:uppercase;letter-spacing:.5px">Con chi hai giocato</h3>
+      <p style="font-size:0.7rem;color:#aaa;margin-bottom:8px">Rendimento dei compagni solo nelle partite giocate insieme a ${p.name} — stesse metriche della classifica, ordinate per partite insieme.</p>
+      ${matesTable}
+    </div>`;
+}
+
+// ─── BILANCIA SQUADRE ──────────────────────────────────────────────────────────
+let BM = { present: [] };
+
+function initBalance() {
+  const { players } = loadData();
+  // Rimuovi eventuali presenti non più esistenti
+  BM.present = BM.present.filter(id => players.some(p => p.id === id));
+  BM._pool = null;
+  renderBalanceChips();
+  document.getElementById('balanceResults').innerHTML = '';
+}
+
+function renderBalanceChips() {
+  const { players } = loadData();
+  const c = document.getElementById('balanceChips');
+  if (!players.length) { c.innerHTML = '<p style="color:#aaa;font-size:0.82rem">Aggiungi giocatori prima.</p>'; return; }
+  c.innerHTML = players.map(p =>
+    `<div class="chip ${BM.present.includes(p.id) ? 'selected' : ''}" onclick="toggleBalance('${p.id}')">${p.name}</div>`
+  ).join('');
+  const n = BM.present.length;
+  const fmt = n >= 2 ? `${Math.ceil(n/2)} vs ${Math.floor(n/2)}` : '';
+  document.getElementById('balanceCount').innerHTML = n
+    ? `<span style="font-weight:700;color:var(--green)">${n} presenti</span>` + (fmt ? `<span style="color:#888;margin-left:8px;font-size:0.78rem">${fmt}</span>` : '')
+    : '<span style="color:#aaa">Nessun presente selezionato</span>';
+}
+
+function toggleBalance(pid) {
+  BM.present = BM.present.includes(pid) ? BM.present.filter(x => x !== pid) : [...BM.present, pid];
+  renderBalanceChips();
+}
+function balanceSelectAll() { BM.present = loadData().players.map(p => p.id); renderBalanceChips(); }
+function balanceClear()     { BM.present = []; renderBalanceChips(); document.getElementById('balanceResults').innerHTML = ''; }
+
+// Forza di ogni giocatore = media punti/partita nella stagione corrente,
+// corretta con shrinkage bayesiano verso la media di lega: chi ha poche
+// partite viene tirato verso la media generale (evita che 1-2 partite molto
+// alte gonfino la forza). Chi ne ha tante mantiene la sua media reale.
+// Chi non ha ancora giocato prende la media di lega (neutro).
+const STRENGTH_PRIOR = 3; // "partite fittizie" a media di lega: più alto = più prudente
+function playerStrengthMap() {
+  const { players, matches, season } = loadData();
+  const rows = calculateStandings(players, matches, season);
+  // Media di lega pooled = punti totali / partite totali (prior dello shrinkage).
+  let totPts = 0, totGp = 0;
+  rows.forEach(r => { totPts += r.points; totGp += r.played; });
+  const avg = totGp ? totPts / totGp : 10;
+  const map = {};
+  rows.forEach(r => { map[r.id] = (r.points + STRENGTH_PRIOR * avg) / (r.played + STRENGTH_PRIOR); });
+  return { map, avg };
+}
+
+// Quante volte ogni coppia ha giocato nella STESSA squadra (tutte le stagioni).
+function teammatePairFreq(matches) {
+  const freq = {};
+  matches.forEach(m => {
+    if (!m.stats) return;
+    const byTeam = { A: [], B: [] };
+    Object.entries(m.stats).forEach(([pid, ps]) => { (byTeam[ps.team] || (byTeam[ps.team] = [])).push(pid); });
+    ['A', 'B'].forEach(t => {
+      const ids = byTeam[t] || [];
+      for (let i = 0; i < ids.length; i++)
+        for (let j = i + 1; j < ids.length; j++) {
+          const k = [ids[i], ids[j]].sort().join('|');
+          freq[k] = (freq[k] || 0) + 1;
+        }
+    });
+  });
+  return freq;
+}
+
+// Tutte le combinazioni di k elementi da arr (array di indici/valori).
+function combinations(arr, k) {
+  const res = [], idx = [], n = arr.length;
+  (function rec(start, depth) {
+    if (depth === k) { res.push(idx.map(i => arr[i])); return; }
+    for (let i = start; i <= n - (k - depth); i++) { idx.push(i); rec(i + 1, depth + 1); idx.pop(); }
+  })(0, 0);
+  return res;
+}
+
+function generateBalanced() {
+  const { players, matches } = loadData();
+  const present = BM.present.slice();
+  const results = document.getElementById('balanceResults');
+  if (present.length < 2) { results.innerHTML = '<p style="color:#e65100;font-size:0.85rem;padding:8px 0">Seleziona almeno 2 giocatori.</p>'; return; }
+  if (present.length > 20) { results.innerHTML = '<p style="color:#e65100;font-size:0.85rem;padding:8px 0">Troppi giocatori (max 20).</p>'; return; }
+
+  const { map: strength, avg } = playerStrengthMap();
+  const freq = teammatePairFreq(matches);
+  const str = id => (id in strength ? strength[id] : avg);
+  const pairKey = (a, b) => [a, b].sort().join('|');
+  const teamNovelty = ids => {
+    let pen = 0, total = 0, novel = 0;
+    for (let i = 0; i < ids.length; i++)
+      for (let j = i + 1; j < ids.length; j++) {
+        const f = freq[pairKey(ids[i], ids[j])] || 0;
+        pen += f; total++; if (f === 0) novel++;
+      }
+    return { pen, total, novel };
+  };
+
+  const n = present.length;
+  const kA = Math.ceil(n / 2), kB = n - kA;
+  const idxCombos = combinations(present.map((_, i) => i), kA);
+
+  const cands = [];
+  const seen = new Set();
+  idxCombos.forEach(combo => {
+    const teamA = combo.map(i => present[i]);
+    const teamB = present.filter(id => !teamA.includes(id));
+    // Con squadre di pari dimensione ogni split compare due volte (A/B invertite): dedup.
+    if (kA === kB) {
+      const key = [teamA.slice().sort().join(','), teamB.slice().sort().join(',')].sort().join('||');
+      if (seen.has(key)) return;
+      seen.add(key);
+    }
+    const sA = teamA.reduce((s, id) => s + str(id), 0);
+    const sB = teamB.reduce((s, id) => s + str(id), 0);
+    const nA = teamNovelty(teamA), nB = teamNovelty(teamB);
+    cands.push({
+      teamA, teamB, sA, sB,
+      diff: Math.abs(sA - sB),
+      pen: nA.pen + nB.pen,
+      novel: nA.novel + nB.novel,
+      totalPairs: nA.total + nB.total,
+    });
+  });
+
+  // Pool "abbastanza equilibrato": entro una tolleranza dal miglior equilibrio.
+  const minDiff = Math.min(...cands.map(c => c.diff));
+  const tol = Math.max(1.5, avg * 0.12);
+  const pool = cands.filter(c => c.diff <= minDiff + tol);
+  BM._pool = pool;
+  renderBalanceProposals();
+}
+
+function renderBalanceProposals() {
+  const pool = BM._pool || [];
+  const results = document.getElementById('balanceResults');
+  if (!pool.length) { results.innerHTML = ''; return; }
+
+  // Randomizza i pari-merito, poi ordina per: più coppie nuove, penalità minore, equilibrio migliore.
+  const shuffled = pool.map(c => ({ c, r: Math.random() }))
+    .sort((a, b) => a.r - b.r).map(x => x.c)
+    .sort((a, b) => b.novel - a.novel || a.pen - b.pen || a.diff - b.diff);
+
+  // Prendi fino a 3 proposte con composizione distinta.
+  const picks = [], keys = new Set();
+  for (const c of shuffled) {
+    const key = c.teamA.slice().sort().join(',');
+    const keyMirror = c.teamB.slice().sort().join(',');
+    if (keys.has(key) || keys.has(keyMirror)) continue;
+    keys.add(key);
+    picks.push(c);
+    if (picks.length === 3) break;
+  }
+
+  const { players } = loadData();
+  const name = id => players.find(p => p.id === id)?.name || '?';
+  const { map: strength, avg } = playerStrengthMap();
+  const str = id => (id in strength ? strength[id] : avg);
+
+  const teamCol = (ids, label, color) => `
+    <div style="flex:1;min-width:0">
+      <p style="font-size:0.7rem;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:${color};margin-bottom:6px;border-bottom:2px solid ${color};padding-bottom:3px">
+        ${label} <span style="float:right;color:#888;font-weight:600">${fmt2(ids.reduce((s,id)=>s+str(id),0))}</span>
+      </p>
+      ${ids.slice().sort((a,b)=>str(b)-str(a)).map(id =>
+        `<p style="font-size:0.82rem;padding:2px 0;display:flex;justify-content:space-between;gap:8px">
+          <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${name(id)}</span>
+          <span style="color:#aaa;font-size:0.72rem">${(id in strength) ? fmt2(strength[id]) : 'N/D'}</span>
+        </p>`).join('')}
+    </div>`;
+
+  results.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin:4px 0 10px">
+      <span style="font-size:0.8rem;color:#888">Forza = media pt/partita corretta per poche presenze · N/D = neutro</span>
+      <button class="btn btn-secondary btn-sm" onclick="renderBalanceProposals()">🎲 Rigenera</button>
     </div>
-    ${aggHtml}`;
+    ${picks.map((c, i) => `
+      <div class="card" style="margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px">
+          <h2 style="margin:0">Proposta ${i + 1}</h2>
+          <span style="font-size:0.72rem;color:#888">Δ forza ${fmt2(c.diff)} · ${c.novel}/${c.totalPairs} coppie nuove</span>
+        </div>
+        <div style="display:flex;gap:12px">
+          ${teamCol(c.teamA, 'Squadra A', '#1a6fb5')}
+          ${teamCol(c.teamB, 'Squadra B', '#b91c1c')}
+        </div>
+      </div>`).join('')}`;
 }
 
 // ─── BACKUP ───────────────────────────────────────────────────────────────────
@@ -1482,8 +1696,9 @@ function importJSON(event) {
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 _initData().then(() => {
-  document.getElementById('newPlayerName').addEventListener('keydown', e => { if(e.key==='Enter') addPlayer(); });
-  document.getElementById('matchDate').value = new Date().toISOString().split('T')[0];
+  document.getElementById('newPlayerName')?.addEventListener('keydown', e => { if(e.key==='Enter') addPlayer(); });
+  const md = document.getElementById('matchDate');
+  if (md) md.value = new Date().toISOString().split('T')[0];
   renderStandings();
 });
 </script>
