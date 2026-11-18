@@ -6727,9 +6727,9 @@
       ]
     },
     {
-      "id": "mwjja2ealn1qvte4n3",
+      "id": "mwlvaylhcxqqr04f4zu",
       "type": "imported",
-      "date": "2026-11-10",
+      "date": "2026-10-27",
       "season": 2026,
       "stats": {
         "p_b63216ec": {
@@ -6737,6 +6737,15 @@
           "assists": 1,
           "ownGoals": 0,
           "conceded": 3,
+          "team": "A",
+          "result": "L",
+          "teamSize": 5
+        },
+        "p_6272fa1b": {
+          "goals": 1,
+          "assists": 1,
+          "ownGoals": 1,
+          "conceded": 1,
           "team": "A",
           "result": "L",
           "teamSize": 5
@@ -6750,15 +6759,6 @@
           "result": "L",
           "teamSize": 5
         },
-        "p_d4db44d6": {
-          "goals": 1,
-          "assists": 1,
-          "ownGoals": 0,
-          "conceded": 4,
-          "team": "A",
-          "result": "L",
-          "teamSize": 5
-        },
         "p_3731e895": {
           "goals": 2,
           "assists": 0,
@@ -6768,11 +6768,11 @@
           "result": "L",
           "teamSize": 5
         },
-        "p_6272fa1b": {
+        "p_d4db44d6": {
           "goals": 1,
           "assists": 1,
-          "ownGoals": 1,
-          "conceded": 1,
+          "ownGoals": 0,
+          "conceded": 4,
           "team": "A",
           "result": "L",
           "teamSize": 5
@@ -6795,15 +6795,6 @@
           "result": "W",
           "teamSize": 5
         },
-        "p_b3043002": {
-          "goals": 2,
-          "assists": 0,
-          "ownGoals": 0,
-          "conceded": 0,
-          "team": "B",
-          "result": "W",
-          "teamSize": 5
-        },
         "p_f8b808e8": {
           "goals": 1,
           "assists": 0,
@@ -6821,102 +6812,111 @@
           "team": "B",
           "result": "W",
           "teamSize": 5
+        },
+        "p_b3043002": {
+          "goals": 2,
+          "assists": 0,
+          "ownGoals": 0,
+          "conceded": 0,
+          "team": "B",
+          "result": "W",
+          "teamSize": 5
         }
       },
       "actions": [
         {
-          "id": "mwjj5bpgm0u64jvv64d",
+          "id": "mwlv73hgcormmez9c2i",
           "type": "goal",
           "scorerId": "p_f90d5f13",
           "keeperId": "p_d4db44d6"
         },
         {
-          "id": "mwjj5zrqdv3i8az0cjs",
+          "id": "mwlv7f188lhcutm1g6m",
           "type": "goal",
           "scorerId": "p_6272fa1b",
           "assistId": "p_b63216ec",
           "keeperId": "p_bfeaf011"
         },
         {
-          "id": "mwjj6ba0b6iw92pr1r",
+          "id": "mwlv7m51lac72uwgr8",
           "type": "goal",
           "scorerId": "p_f90d5f13",
           "keeperId": "p_d4db44d6"
         },
         {
-          "id": "mwjj6ki8lsyv2c1u0h",
+          "id": "mwlv7vv4qm2rbi2qngc",
           "type": "goal",
           "scorerId": "p_3731e895",
           "assistId": "p_6272fa1b",
           "keeperId": "p_bfeaf011"
         },
         {
-          "id": "mwjj6u6cwbgl2tmmfk",
+          "id": "mwlv82inncttbiylj3o",
           "type": "goal",
           "scorerId": "p_b3043002",
           "keeperId": "p_d4db44d6"
         },
         {
-          "id": "mwjj73pkkf5zfj12b5",
+          "id": "mwlv89cv8l9k8gepysn",
           "type": "goal",
           "scorerId": "p_b3043002",
           "assistId": "p_87fc91be",
           "keeperId": "p_d4db44d6"
         },
         {
-          "id": "mwjj7iu1qs34e9gfcy",
+          "id": "mwlv8q9lsat6fyyblyb",
           "type": "owngoal",
           "scorerId": "p_6272fa1b",
           "keeperId": "p_3731e895"
         },
         {
-          "id": "mwjj7wwxkk14jg240v",
+          "id": "mwlv8zfzwro62cdafg",
           "type": "goal",
           "scorerId": "p_d4db44d6",
           "assistId": "p_9d04b657",
           "keeperId": "p_f8b808e8"
         },
         {
-          "id": "mwjj866ivvn0lbv1xth",
+          "id": "mwlv96x7z0kbxm03dz9",
           "type": "goal",
           "scorerId": "p_f90d5f13",
           "keeperId": "p_3731e895"
         },
         {
-          "id": "mwjj8eyii1bhmgch268",
+          "id": "mwlv9e6xj61pa6ffrfi",
           "type": "goal",
           "scorerId": "p_3731e895",
           "assistId": "p_d4db44d6",
           "keeperId": "p_f90d5f13"
         },
         {
-          "id": "mwjj8pqfc6a9hkndjja",
+          "id": "mwlv9qvbwo9rawqjdg",
           "type": "owngoal",
           "scorerId": "p_f90d5f13",
           "keeperId": "p_f90d5f13"
         },
         {
-          "id": "mwjj92lrb4gxfjszrs6",
+          "id": "mwlvaakokyqih4e8s4k",
           "type": "goal",
           "scorerId": "p_bfeaf011",
           "assistId": "p_f90d5f13",
           "keeperId": "p_b63216ec"
         },
         {
-          "id": "mwjj9diwx9mmsxpxj4b",
+          "id": "mwlvahouzs6rzf9v2b",
           "type": "goal",
           "scorerId": "p_f8b808e8",
           "assistId": "p_bfeaf011",
           "keeperId": "p_b63216ec"
         },
         {
-          "id": "mwjj9l24do3c05ijzke",
+          "id": "mwlvanrm4m0l58tsozu",
           "type": "goal",
           "scorerId": "p_f90d5f13",
           "keeperId": "p_b63216ec"
         },
         {
-          "id": "mwjj9w76hofk7tfxae",
+          "id": "mwlvawh2v3y9n7poze",
           "type": "goal",
           "scorerId": "p_bfeaf011",
           "assistId": "p_87fc91be",
